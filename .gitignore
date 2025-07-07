@@ -1,0 +1,51 @@
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Build results
+bin/
+obj/
+
+# NuGet
+*.nupkg
+packages/
+project.lock.json
+project.fragment.lock.json
+
+# Visual Studio Code
+.vscode/
+
+# Rider
+.idea/
+
+# Others
+*.log
+*.tlog
+*.cache
+*.pdb
+
+# Resharper
+_ReSharper*/
+*.[Rr]e[Ss]harper
+
+# IIS Express
+. vsconfig
+
+# OS generated files
+Thumbs.db
+.DS_Store
+
+# Auto-generated files
+*.dbmdl
+
+# Backup files
+*.bak
+
+# Publish Web Output
+publish/
+
+# Git
+*.orig

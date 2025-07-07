@@ -1,0 +1,111 @@
+﻿<Window x:Class="WpfApp1.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:fa="clr-namespace:FontAwesome.WPF;assembly=FontAwesome.WPF"
+        xmlns:local="clr-namespace:WpfApp1"  
+    mc:Ignorable="d"
+        Title="IntegraSoft" Height="600" Width="900" Background="#F5F6FA">
+
+    <Window.Resources>
+        <Style x:Key="MenuButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="8"/>
+            <Setter Property="Margin" Value="2"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="4">
+                            <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#2E3A57"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="200"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- Menú lateral -->
+        <StackPanel Background="#1F2A40" Grid.Column="0" Margin="0">
+            <!-- Logo IntegraSoft -->
+            <Button Style="{StaticResource MenuButton}" Click="BtnControlGeneral_Click" FontSize="22">
+                <StackPanel Orientation="Horizontal" Margin="10" VerticalAlignment="Center">
+                    <fa:ImageAwesome Icon="Cogs" Width="24" Height="24" Foreground="White" Margin="0,0,10,0"/>
+                    <TextBlock Text="IntegraSoft" FontSize="24" FontWeight="Bold" Foreground="White" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Button>
+
+            <Separator Margin="10,10"/>
+
+            <!-- Botones -->
+            <Button Style="{StaticResource MenuButton}" Click="BtnClientes_Click" FontSize="18">
+                <StackPanel Orientation="Horizontal">
+                    <fa:ImageAwesome Icon="Users" Width="22" Height="22" Foreground="White" Margin="0,0,10,40"/>
+                    <TextBlock Text="Clientes"/>
+                </StackPanel>
+            </Button>
+
+            <Button Style="{StaticResource MenuButton}" Click="BtnProveedores_Click" FontSize="18">
+                <StackPanel Orientation="Horizontal">
+                    <fa:ImageAwesome Icon= "Truck" Width="22" Height="22" Foreground="White" Margin="0,0,10,40"/>
+                    <TextBlock Text="Cañeros"/>
+                </StackPanel>
+            </Button>
+
+            <Button Style="{StaticResource MenuButton}" Click="BtnVentas_Click" FontSize="18">
+                <StackPanel Orientation="Horizontal">
+                    <fa:ImageAwesome Icon="ShoppingCart" Width="22" Height="22" Foreground="White" Margin="0,0,10,40"/>
+                    <TextBlock Text="Ventas"/>
+                </StackPanel>
+            </Button>
+
+            <Button Style="{StaticResource MenuButton}" FontSize="18" Click="BtnCompras_Click">
+                <StackPanel Orientation="Horizontal">
+                    <fa:ImageAwesome Icon="ShoppingBag" Width="22" Height="22" Foreground="White" Margin="0,0,10,40"/>
+                    <TextBlock Text="Compras"/>
+                </StackPanel>
+            </Button>
+
+            <Button Style="{StaticResource MenuButton}" FontSize="18">
+                <StackPanel Orientation="Horizontal">
+                    <fa:ImageAwesome Icon="Money" Width="22" Height="22" Foreground="White" Margin="0,0,10,40"/>
+                    <TextBlock Text="Caja"/>
+                </StackPanel>
+            </Button>
+
+            <Button Style="{StaticResource MenuButton}" Click="BtnPrecios_Click" FontSize="18">
+                <StackPanel Orientation="Horizontal">
+                    <fa:ImageAwesome Icon="Tags" Width="22" Height="22" Foreground="White" Margin="0,0,10,40"/>
+                    <TextBlock Text="Precios"/>
+                </StackPanel>
+            </Button>
+
+            <Button Style="{StaticResource MenuButton}" FontSize="18">
+                <StackPanel Orientation="Horizontal">
+                    <fa:ImageAwesome Icon="Bell" Width="22" Height="22" Foreground="White" Margin="0,0,10,40"/>
+                    <TextBlock Text="Notificaciones"/>
+                </StackPanel>
+            </Button>
+        </StackPanel>
+
+        <!-- Contenedor del contenido dinámico -->
+        <ContentControl x:Name="MainContent" Grid.Column="1" Background="#F5F6FA"/>
+    </Grid>
+</Window>

@@ -1,0 +1,80 @@
+﻿<Window x:Class="WpfApp1.ClienteForm"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:fa="http://schemas.fontawesome.io/icons/"
+        Title="Formulario Carga Cliente" Height="528" Width="400"
+        Background="#FAFAFA" WindowStartupLocation="CenterScreen" ResizeMode="NoResize">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Orientation="Horizontal" Margin="0,0,0,20" VerticalAlignment="Center">
+            <fa:ImageAwesome Icon="UserPlus" Width="28" Height="28" Foreground="#333"  Margin="0,0,8,0"/>
+            <TextBlock Text="NUEVO CLIENTE"
+               FontSize="22"
+               FontWeight="Bold"
+               Foreground="#333" />
+        </StackPanel>
+
+
+        <StackPanel Grid.Row="1" VerticalAlignment="Top" Orientation="Vertical">
+
+            <!-- Apellido -->
+            <TextBlock Text="Apellido:" FontWeight="SemiBold" Foreground="#555" FontSize="14"/>
+            <TextBox x:Name="txtApellido" Height="28" PreviewTextInput="SoloLetras_PreviewTextInput" TextChanged="txtApellido_TextChanged" FontSize="14"/>
+            <TextBlock x:Name="lblErrorApellido" Foreground="Red" FontSize="12" Visibility="Collapsed" Text="Solo se permiten letras." />
+
+            <!-- Nombre -->
+            <TextBlock Text="Nombre:" FontWeight="SemiBold" Foreground="#555" FontSize="14"/>
+            <TextBox x:Name="txtNombre" Height="28" PreviewTextInput="SoloLetras_PreviewTextInput" TextChanged="txtNombre_TextChanged" FontSize="14"/>
+            <TextBlock x:Name="lblErrorNombre" Foreground="Red" FontSize="12" Visibility="Collapsed" Text="Solo se permiten letras." />
+
+            <!-- DNI -->
+            <TextBlock Text="DNI:" FontWeight="SemiBold" Foreground="#555" FontSize="14"/>
+            <TextBox x:Name="txtDNI" Height="28" PreviewTextInput="SoloNumeros_PreviewTextInput" TextChanged="txtDNI_TextChanged" FontSize="14"/>
+            <TextBlock x:Name="lblErrorDNI" Foreground="Red" FontSize="12" Visibility="Collapsed" Text="Solo se permiten números." />
+
+            <!-- Domicilio -->
+            <TextBlock Text="Domicilio:" FontWeight="SemiBold" Foreground="#555" FontSize="14"/>
+            <TextBox x:Name="txtDireccion" Height="28" FontSize="14"/>
+
+            <!-- Teléfono -->
+            <TextBlock Text="Teléfono:" FontWeight="SemiBold" Foreground="#555" FontSize="14"/>
+            <TextBox x:Name="txtTelefono" Height="28" FontSize="14"/>
+
+            <!-- Email -->
+            <TextBlock Text="Email:" FontWeight="SemiBold" Foreground="#555" FontSize="14"/>
+            <TextBox x:Name="txtEmail" Height="28" FontSize="14"/>
+
+            <!-- Estado -->
+            <TextBlock Text="Estado:" FontWeight="SemiBold" Foreground="#555" FontSize="14"/>
+            <ComboBox x:Name="cmbEstado" Height="28" FontSize="14">
+                <ComboBoxItem Content="Activo" FontSize="14"/>
+                <ComboBoxItem Content="Inactivo" FontSize="14"/>
+            </ComboBox>
+
+            <!-- Botón Agregar -->
+
+            <Button Height="46"
+        Background="#4CAF50"
+        Foreground="White"
+        FontWeight="Bold"
+        Click="BtnAgregar_Click"
+        FontSize="18"
+        Margin="0,20,0,0"
+        Padding="10,0">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                    <fa:ImageAwesome Icon="PlusCircle" Width="24" Height="24" Foreground="White" Margin="0,0,8,0"/>
+                    <TextBlock Text="AGREGAR"
+                   FontSize="18"
+                   FontWeight="Bold"
+                   VerticalAlignment="Center"/>
+                </StackPanel>
+            </Button>
+
+
+        </StackPanel>
+    </Grid>
+</Window>
