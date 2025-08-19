@@ -74,7 +74,7 @@ namespace WpfApp1
             {
                 conn.Open();
 
-                // Obtener el último saldo en pesos y en bolsas del proveedor
+                // Obtener último saldo del proveedor
                 string queryUltimo = @"SELECT TOP 1 Saldo, SaldoBls 
                                FROM MovimientoCuentaProveedor 
                                WHERE proveedorID = @proveedorID 
@@ -100,11 +100,10 @@ namespace WpfApp1
                 decimal saldoNuevo = saldoActual - haber;
                 decimal saldoBlsNuevo = saldoBolsasActual - haberBls;
 
-                // Insertar el nuevo movimiento
+                // Insertar movimiento en cuenta proveedor
                 string insertQuery = @"INSERT INTO MovimientoCuentaProveedor 
-            (proveedorID, Fecha, Detalle, Debe, Haber, Saldo, DebeBls, HaberBls, SaldoBls)
-            VALUES (@proveedorID, @Fecha, @Detalle, 0, @Haber, @Saldo, 0, @HaberBls, @SaldoBls)";
-
+                               (proveedorID, Fecha, Detalle, Debe, Haber, Saldo, DebeBls, HaberBls, SaldoBls)
+                               VALUES (@proveedorID, @Fecha, @Detalle, 0, @Haber, @Saldo, 0, @HaberBls, @SaldoBls)";
                 SqlCommand insertCmd = new SqlCommand(insertQuery, conn);
                 insertCmd.Parameters.AddWithValue("@proveedorID", proveedorID);
                 insertCmd.Parameters.AddWithValue("@Fecha", fecha);
@@ -113,10 +112,9 @@ namespace WpfApp1
                 insertCmd.Parameters.AddWithValue("@Saldo", saldoNuevo);
                 insertCmd.Parameters.AddWithValue("@HaberBls", haberBls);
                 insertCmd.Parameters.AddWithValue("@SaldoBls", saldoBlsNuevo);
-
                 insertCmd.ExecuteNonQuery();
 
-                // Actualizar saldo en CuentaCorrienteProveedor
+                // Actualizar saldo en cuenta corriente proveedor
                 string updateCuentaCorriente = @"UPDATE CuentaCorrienteProveedor 
                                          SET SaldoPesos = @Saldo 
                                          WHERE proveedorID = @proveedorID";
@@ -124,6 +122,83 @@ namespace WpfApp1
                 updateCmd.Parameters.AddWithValue("@Saldo", saldoNuevo);
                 updateCmd.Parameters.AddWithValue("@proveedorID", proveedorID);
                 updateCmd.ExecuteNonQuery();
+
+                // === REGISTRO EN CAJA COMO EGRESO ===
+
+                // Buscar caja de la fecha
+                string queryCaja = @"SELECT TOP 1 cajaID, saldoInicial, saldoFinal
+                             FROM Caja 
+                             WHERE CAST(fecha AS DATE) = @fechaCaja";
+                SqlCommand cmdCaja = new SqlCommand(queryCaja, conn);
+                cmdCaja.Parameters.AddWithValue("@fechaCaja", fecha.Date);
+
+                int cajaID;
+                decimal saldoFinalCaja;
+
+                using (SqlDataReader cajaReader = cmdCaja.ExecuteReader())
+                {
+                    if (cajaReader.Read())
+                    {
+                        cajaID = Convert.ToInt32(cajaReader["cajaID"]);
+                        saldoFinalCaja = cajaReader["saldoFinal"] != DBNull.Value ? Convert.ToDecimal(cajaReader["saldoFinal"]) : 0;
+
+                        if (saldoFinalCaja == 0)
+                        {
+                            // Usar saldoInicial como base si todavía no hubo movimientos
+                            saldoFinalCaja = cajaReader["saldoInicial"] != DBNull.Value ? Convert.ToDecimal(cajaReader["saldoInicial"]) : 0;
+                        }
+
+                    }
+                    else
+                    {
+                        cajaID = -1;
+                        saldoFinalCaja = 0;
+                    }
+                }
+
+                // Si no existe, crearla con saldo inicial = último saldo final anterior
+                if (cajaID == -1)
+                {
+                    SqlCommand cmdSaldoAnterior = new SqlCommand(
+                        @"SELECT TOP 1 saldoFinal 
+                  FROM Caja 
+                  WHERE fecha < @fechaCaja
+                  ORDER BY fecha DESC", conn);
+                    cmdSaldoAnterior.Parameters.AddWithValue("@fechaCaja", fecha.Date);
+                    object saldoAnteriorObj = cmdSaldoAnterior.ExecuteScalar();
+                    decimal saldoAnterior = saldoAnteriorObj != DBNull.Value ? Convert.ToDecimal(saldoAnteriorObj) : 0;
+
+                    SqlCommand cmdInsertCaja = new SqlCommand(
+                        @"INSERT INTO Caja (fecha, saldoInicial, saldoFinal) 
+                  VALUES (@fechaCaja, @saldoInicial, @saldoInicial);
+                  SELECT SCOPE_IDENTITY();", conn);
+                    cmdInsertCaja.Parameters.AddWithValue("@fechaCaja", fecha.Date);
+                    cmdInsertCaja.Parameters.AddWithValue("@saldoInicial", saldoAnterior);
+
+                    cajaID = Convert.ToInt32(cmdInsertCaja.ExecuteScalar());
+                    saldoFinalCaja = saldoAnterior;
+                }
+
+                // Insertar movimiento como egreso
+                string insertMovimientoCaja = @"INSERT INTO MovimientoCaja 
+                                        (cajaID, fecha, tipoMovimiento, descripcion, monto, origen)
+                                        VALUES (@cajaID, @fecha, @tipoMovimiento, @descripcion, @monto, @origen)";
+                SqlCommand cmdMovimiento = new SqlCommand(insertMovimientoCaja, conn);
+                cmdMovimiento.Parameters.AddWithValue("@cajaID", cajaID);
+                cmdMovimiento.Parameters.AddWithValue("@fecha", fecha);
+                cmdMovimiento.Parameters.AddWithValue("@tipoMovimiento", "Egreso");
+                cmdMovimiento.Parameters.AddWithValue("@descripcion", detalle);
+                cmdMovimiento.Parameters.AddWithValue("@monto", monto);
+                cmdMovimiento.Parameters.AddWithValue("@origen", "Pago a cañero");
+                cmdMovimiento.ExecuteNonQuery();
+
+                // Actualizar saldoFinal de la caja (restar monto del egreso)
+                decimal nuevoSaldoFinal = saldoFinalCaja - monto;
+                SqlCommand cmdUpdateSaldoFinal = new SqlCommand(
+                    @"UPDATE Caja SET saldoFinal = @nuevoSaldoFinal WHERE cajaID = @cajaID", conn);
+                cmdUpdateSaldoFinal.Parameters.AddWithValue("@nuevoSaldoFinal", nuevoSaldoFinal);
+                cmdUpdateSaldoFinal.Parameters.AddWithValue("@cajaID", cajaID);
+                cmdUpdateSaldoFinal.ExecuteNonQuery();
             }
 
             // Limpiar campos

@@ -1,0 +1,105 @@
+﻿<UserControl x:Class="WpfApp1.Caja" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:fa="http://schemas.fontawesome.io/icons/" xmlns:faWPF="clr-namespace:FontAwesome.WPF;assembly=FontAwesome.WPF" Background="#f5f7fa">
+    <Grid Margin="20">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="4*" />
+            <!-- DataGrid -->
+            <ColumnDefinition Width="1.5*" />
+            <!-- Tarjetas -->
+        </Grid.ColumnDefinitions>
+        <!-- PANEL IZQUIERDO (DataGrid + Totales) -->
+        <Border Grid.Column="0" Background="White" CornerRadius="10" Margin="0,0,20,10" Padding="20">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <!-- Título -->
+                    <RowDefinition Height="*" />
+                    <!-- DataGrid -->
+                    <RowDefinition Height="Auto" />
+                    <!-- Totales -->
+                </Grid.RowDefinitions>
+                <TextBlock Text="MOVIMIENTOS DE CAJA" FontSize="24" FontWeight="Bold" Margin="0,0,0,20"/>
+                <!-- DataGrid -->
+                <DataGrid Name="dgMovimientos" Grid.Row="1" AutoGenerateColumns="False" HeadersVisibility="Column" CanUserAddRows="False" CanUserDeleteRows="False" IsReadOnly="True" GridLinesVisibility="None" RowBackground="White" AlternatingRowBackground="#F9F9F9" BorderThickness="0" Background="White" RowHeight="40" FontSize="14" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Auto">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Fecha" Binding="{Binding fecha}" Width="150" />
+                        <DataGridTextColumn Header="Tipo" Binding="{Binding tipoMovimiento}" Width="120" />
+                        <DataGridTextColumn Header="Descripción" Binding="{Binding descripcion}" Width="250" />
+                        <DataGridTextColumn Header="Monto" Binding="{Binding monto}" Width="150" />
+                        <DataGridTextColumn Header="Origen" Binding="{Binding origen}" Width="200" />
+                    </DataGrid.Columns>
+                </DataGrid>
+                <!-- Totales debajo del DataGrid -->
+                <StackPanel Grid.Row="2" Orientation="Vertical" Margin="0,10,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" >
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="TOTAL INGRESOS: " FontSize="16" Foreground="Black" Margin="0,0,0,5"/>
+                        <TextBlock Name="txtTotalIngresos" FontSize="20" FontWeight="Bold" Foreground="Black"></TextBlock>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="TOTAL EGRESOS: " FontSize="16" Foreground="Black" Margin="0,0,0,5"/>
+                        <TextBlock Name="txtTotalEgresos" FontSize="20" FontWeight="Bold" Foreground="Black"></TextBlock>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="SALDO FINAL: " FontSize="18" Foreground="Black"/>
+                        <TextBlock Name="txtTotalSaldo" FontSize="20" FontWeight="Bold" Foreground="Black"></TextBlock>
+                    </StackPanel>
+                </StackPanel>
+            </Grid>
+        </Border>
+        <!-- PANEL DERECHO (DatePicker + Tarjetas + Botón) -->
+        <StackPanel Grid.Column="1" Orientation="Vertical" VerticalAlignment="Top">
+            <!-- Solo el DatePicker alineado a la derecha -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,10">
+                <DatePicker x:Name="dpFechaCaja" Width="250" FontSize="18" SelectedDateChanged="DatePicker_SelectedDateChanged"/>
+            </StackPanel>
+            <!-- TARJETAS -->
+            <StackPanel Orientation="Vertical" HorizontalAlignment="Stretch" Margin="0,10,0,0">
+                <!-- Saldo inicial -->
+                <Border Background="White" CornerRadius="10" Margin="0,5" Padding="5">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <faWPF:ImageAwesome Icon="Money" Width="26" Height="26" Foreground="#333" Margin="0,0,10,0"/>
+                        <StackPanel>
+                            <TextBlock Text="Saldo inicial" FontWeight="Bold" FontSize="18"/>
+                            <TextBlock x:Name="txtSaldoInicial" Text="$0.00" FontSize="22" FontWeight="Bold"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+                <!-- Ingresos -->
+                <Border Background="#dff0d8" CornerRadius="10" Margin="0,5" Padding="10">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <faWPF:ImageAwesome Icon="ArrowUp" Width="26" Height="26" Foreground="#3c763d" Margin="0,0,10,0"/>
+                        <StackPanel>
+                            <TextBlock Text="Ingresos" FontWeight="Bold" FontSize="18" Foreground="#3c763d"/>
+                            <TextBlock x:Name="txtIngresos" Text="$0.00" FontSize="22" FontWeight="Bold" Foreground="#3c763d"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+                <!-- Egresos -->
+                <Border Background="#f2dede" CornerRadius="10" Margin="0,5" Padding="10">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <faWPF:ImageAwesome Icon="ArrowDown" Width="26" Height="26" Foreground="#a94442" Margin="0,0,10,0"/>
+                        <StackPanel>
+                            <TextBlock Text="Egresos" FontWeight="Bold" FontSize="18" Foreground="#a94442"/>
+                            <TextBlock x:Name="txtEgresos" Text="$0.00" FontSize="22" FontWeight="Bold" Foreground="#a94442"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+                <!-- Saldo actual -->
+                <Border Background="LightYellow"  CornerRadius="10" Margin="0,5" Padding="10">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <faWPF:ImageAwesome Icon="Money" Width="26" Height="26" Foreground="Black"  Margin="0,0,10,0"/>
+                        <StackPanel>
+                            <TextBlock Text="Saldo actual" FontWeight="Bold" FontSize="18" Foreground="Black"/>
+                            <TextBlock x:Name="txtSaldoActual" Text="$0.00" FontSize="22" FontWeight="Bold" Foreground="Black"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+            <Button Background="#3498db" Foreground="White" Padding="10,5" Margin="0,15,0,0" BorderThickness="0" FontSize="20" Cursor="Hand" FontWeight="Bold" Click="BtnGasto_Click">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <faWPF:ImageAwesome Icon="Plus" Width="20" Height="20" Foreground="White" Margin="0,0,8,0"/>
+                    <TextBlock Text="AGREGAR GASTO" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Button>
+        </StackPanel>
+    </Grid>
+</UserControl>

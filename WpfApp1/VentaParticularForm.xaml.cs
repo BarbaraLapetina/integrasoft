@@ -92,6 +92,7 @@ namespace WpfApp1
             dgDetalle.ItemsSource = detalleVenta;
 
             txtTotal.Text = detalleVenta.Sum(i => i.Subtotal).ToString("C");
+
         }
 
         private void btnEliminar_Click(object sender, RoutedEventArgs e)
@@ -137,8 +138,8 @@ namespace WpfApp1
                 {
                     // Insertar venta
                     string insertVenta = @"INSERT INTO VentaCF (fecha, TotalVentacf)
-                                           VALUES (@fecha, @total);
-                                           SELECT SCOPE_IDENTITY();";
+                                   VALUES (@fecha, @total);
+                                   SELECT SCOPE_IDENTITY();";
                     SqlCommand cmdVenta = new SqlCommand(insertVenta, conn, transaction);
                     cmdVenta.Parameters.AddWithValue("@fecha", DateTime.Now);
                     cmdVenta.Parameters.AddWithValue("@total", detalleVenta.Sum(i => i.Subtotal));
@@ -148,7 +149,7 @@ namespace WpfApp1
                     foreach (var item in detalleVenta)
                     {
                         string insertDetalle = @"INSERT INTO detalleVentaCF (ventacfID, productoID, Cantidad, PrecioUnitario, Subtotal)
-                                                 VALUES (@ventacfID, @productoID, @cantidad, @precio, @subtotal)";
+                                         VALUES (@ventacfID, @productoID, @cantidad, @precio, @subtotal)";
                         SqlCommand cmdDetalle = new SqlCommand(insertDetalle, conn, transaction);
                         cmdDetalle.Parameters.AddWithValue("@ventacfID", ventacfID);
                         cmdDetalle.Parameters.AddWithValue("@productoID", item.productoID);
@@ -166,7 +167,69 @@ namespace WpfApp1
                 {
                     transaction.Rollback();
                     MessageBox.Show("Error al registrar venta: " + ex.Message);
+                    return;
                 }
+
+                // === REGISTRO EN CAJA ===
+
+                // Buscar si ya existe caja para la fecha del pago
+                string queryCaja = @"SELECT TOP 1 cajaID 
+                             FROM Caja 
+                             WHERE CAST(fecha AS DATE) = @fechaCaja";
+                SqlCommand cmdCaja = new SqlCommand(queryCaja, conn);
+                cmdCaja.Parameters.AddWithValue("@fechaCaja", DateTime.Parse(txtFecha.Text).Date); // CAMBIO: usar DateTime
+
+                object cajaIdObj = cmdCaja.ExecuteScalar();
+
+                // Si no existe caja, crear una nueva con saldo inicial
+                if (cajaIdObj == null)
+                {
+                    SqlCommand cmdSaldoAnterior = new SqlCommand(
+                        @"SELECT TOP 1 saldoFinal 
+                  FROM Caja 
+                  WHERE fecha < @fechaCaja
+                  ORDER BY fecha DESC", conn);
+                    cmdSaldoAnterior.Parameters.AddWithValue("@fechaCaja", DateTime.Parse(txtFecha.Text).Date);
+                    object saldoAnteriorObj = cmdSaldoAnterior.ExecuteScalar();
+                    decimal saldoAnterior = saldoAnteriorObj != DBNull.Value ? Convert.ToDecimal(saldoAnteriorObj) : 0;
+
+                    SqlCommand cmdInsertCaja = new SqlCommand(
+                        @"INSERT INTO Caja (fecha, saldoInicial) 
+                  VALUES (@fechaCaja, @saldoInicial);
+                  SELECT SCOPE_IDENTITY();", conn);
+                    cmdInsertCaja.Parameters.AddWithValue("@fechaCaja", DateTime.Parse(txtFecha.Text).Date);
+                    cmdInsertCaja.Parameters.AddWithValue("@saldoInicial", saldoAnterior);
+
+                    cajaIdObj = cmdInsertCaja.ExecuteScalar();
+                }
+
+                int cajaID = Convert.ToInt32(cajaIdObj);
+
+                // CAMBIO: Generar descripción como "Producto1 x Cantidad1, Producto2 x Cantidad2"
+                string descripcionMovimiento = string.Join(", ",
+                    detalleVenta.Select(i => $"{i.Nombre} x {i.Cantidad}"));
+
+                // Insertar movimiento en caja
+                string insertMovimientoCaja = @"INSERT INTO MovimientoCaja 
+                                (cajaID, fecha, tipoMovimiento, descripcion, monto, origen)
+                                VALUES (@cajaID, @fecha, @tipoMovimiento, @descripcion, @monto, @origen)";
+                SqlCommand cmdMovimiento = new SqlCommand(insertMovimientoCaja, conn);
+                cmdMovimiento.Parameters.AddWithValue("@cajaID", cajaID);
+                cmdMovimiento.Parameters.AddWithValue("@fecha", DateTime.Now);
+                cmdMovimiento.Parameters.AddWithValue("@tipoMovimiento", "Ingreso");
+                cmdMovimiento.Parameters.AddWithValue("@descripcion", descripcionMovimiento); // CAMBIO
+                cmdMovimiento.Parameters.AddWithValue("@monto", detalleVenta.Sum(i => i.Subtotal));
+                cmdMovimiento.Parameters.AddWithValue("@origen", "Venta particular");
+                cmdMovimiento.ExecuteNonQuery();
+
+                // Actualizar saldoFinal de la caja (sumar el ingreso)
+                string updateSaldoFinalCaja = @"UPDATE Caja 
+        SET saldoFinal = ISNULL(saldoFinal, 0) + @monto
+        WHERE cajaID = @cajaID";
+                SqlCommand cmdUpdateSaldoFinal = new SqlCommand(updateSaldoFinalCaja, conn);
+                cmdUpdateSaldoFinal.Parameters.AddWithValue("@monto", detalleVenta.Sum(i => i.Subtotal));
+                cmdUpdateSaldoFinal.Parameters.AddWithValue("@cajaID", cajaID);
+                cmdUpdateSaldoFinal.ExecuteNonQuery();
             }
         }
 
@@ -179,6 +242,8 @@ namespace WpfApp1
             dgDetalle.ItemsSource = detalleVenta;
             txtTotal.Text = "0";
         }
+    }
+
     }
 
 
@@ -194,5 +259,5 @@ namespace WpfApp1
     }
 
    
-}
+
 

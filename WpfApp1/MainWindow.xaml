@@ -83,7 +83,7 @@
                 </StackPanel>
             </Button>
 
-            <Button Style="{StaticResource MenuButton}" FontSize="18">
+            <Button Style="{StaticResource MenuButton}" FontSize="18" Click="BtnCaja_Click">
                 <StackPanel Orientation="Horizontal">
                     <fa:ImageAwesome Icon="Money" Width="22" Height="22" Foreground="White" Margin="0,0,10,40"/>
                     <TextBlock Text="Caja"/>

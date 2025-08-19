@@ -50,6 +50,11 @@ namespace WpfApp1
         {
             MainContent.Content = new WpfApp1.Compras();
         }
+
+        private void BtnCaja_Click(object sender, RoutedEventArgs e)
+        {
+            MainContent.Content = new WpfApp1.Caja();
+        }
     }
 
 }

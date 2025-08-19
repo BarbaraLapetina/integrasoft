@@ -72,58 +72,128 @@ namespace WpfApp1
             using (SqlConnection conn = new SqlConnection(connectionString))
             {
                 conn.Open();
+                using (SqlTransaction transaction = conn.BeginTransaction())
+                {
+                    try
+                    {
+                        // Obtener el último saldo del cliente
+                        string queryUltimo = @"SELECT TOP 1 Saldo 
+                                       FROM MovimientoCuentaCliente 
+                                       WHERE clienteID = @clienteID 
+                                       ORDER BY Fecha DESC";
+                        SqlCommand cmdUltimo = new SqlCommand(queryUltimo, conn, transaction);
+                        cmdUltimo.Parameters.AddWithValue("@clienteID", clienteID);
+                        object result = cmdUltimo.ExecuteScalar();
+                        saldoActual = result != null ? Convert.ToDecimal(result) : 0;
 
-                // Obtener el último saldo
-                string queryUltimo = @"SELECT TOP 1 Saldo 
-                               FROM MovimientoCuentaCliente 
-                               WHERE clienteID = @clienteID 
-                               ORDER BY Fecha DESC";
-                SqlCommand cmdUltimo = new SqlCommand(queryUltimo, conn);
-                cmdUltimo.Parameters.AddWithValue("@clienteID", clienteID);
-                object result = cmdUltimo.ExecuteScalar();
-                saldoActual = result != null ? Convert.ToDecimal(result) : 0;
+                        // Obtener precio de bolsa
+                        string queryPrecio = "SELECT TOP 1 Precio FROM ParametroPrecio ORDER BY Fecha DESC";
+                        SqlCommand cmdPrecio = new SqlCommand(queryPrecio, conn, transaction);
+                        object precioObj = cmdPrecio.ExecuteScalar();
+                        precioBolsa = precioObj != null ? Convert.ToDecimal(precioObj) : 1;
 
-                // Obtener precio de bolsa
-                string queryPrecio = "SELECT TOP 1 Precio FROM ParametroPrecio ORDER BY Fecha DESC";
-                SqlCommand cmdPrecio = new SqlCommand(queryPrecio, conn);
-                object precioObj = cmdPrecio.ExecuteScalar();
-                precioBolsa = precioObj != null ? Convert.ToDecimal(precioObj) : 1;
+                        decimal haber = monto;
+                        decimal haberBls = precioBolsa != 0 ? haber / precioBolsa : 0;
+                        decimal saldoNuevo = saldoActual + haber;
+                        decimal saldoBlsNuevo = Math.Abs(saldoNuevo) / precioBolsa;
 
-                decimal haber = monto;
-                decimal haberBls = precioBolsa != 0 ? haber / precioBolsa : 0;
-                decimal saldoNuevo = saldoActual + haber;
-                decimal saldoBlsNuevo = Math.Abs(saldoNuevo) / precioBolsa;
+                        // Insertar movimiento en cuenta del cliente
+                        string insertQuery = @"INSERT INTO MovimientoCuentaCliente 
+                                       (clienteID, Fecha, Detalle, Debe, Haber, Saldo, DebeBls, HaberBls, SaldoBls)
+                                       VALUES (@clienteID, @Fecha, @Detalle, 0, @Haber, @Saldo, 0, @HaberBls, @SaldoBls)";
+                        SqlCommand insertCmd = new SqlCommand(insertQuery, conn, transaction);
+                        insertCmd.Parameters.AddWithValue("@clienteID", clienteID);
+                        insertCmd.Parameters.AddWithValue("@Fecha", fecha);
+                        insertCmd.Parameters.AddWithValue("@Detalle", detalle);
+                        insertCmd.Parameters.AddWithValue("@Haber", haber);
+                        insertCmd.Parameters.AddWithValue("@Saldo", saldoNuevo);
+                        insertCmd.Parameters.AddWithValue("@HaberBls", haberBls);
+                        insertCmd.Parameters.AddWithValue("@SaldoBls", saldoBlsNuevo);
+                        insertCmd.ExecuteNonQuery();
 
-                // Insertar movimiento
-                string insertQuery = @"INSERT INTO MovimientoCuentaCliente 
-            (clienteID, Fecha, Detalle, Debe, Haber, Saldo, DebeBls, HaberBls, SaldoBls)
-            VALUES (@clienteID, @Fecha, @Detalle, 0, @Haber, @Saldo, 0, @HaberBls, @SaldoBls)";
+                        // Actualizar saldo en CuentaCorrienteCliente
+                        string updateCuentaCorriente = @"UPDATE CuentaCorrienteCliente 
+                                                 SET SaldoPesos = @Saldo 
+                                                 WHERE clienteID = @clienteID";
+                        SqlCommand updateCmd = new SqlCommand(updateCuentaCorriente, conn, transaction);
+                        updateCmd.Parameters.AddWithValue("@Saldo", saldoNuevo);
+                        updateCmd.Parameters.AddWithValue("@clienteID", clienteID);
+                        updateCmd.ExecuteNonQuery();
 
-                SqlCommand insertCmd = new SqlCommand(insertQuery, conn);
-                insertCmd.Parameters.AddWithValue("@clienteID", clienteID);
-                insertCmd.Parameters.AddWithValue("@Fecha", fecha);
-                insertCmd.Parameters.AddWithValue("@Detalle", detalle);
-                insertCmd.Parameters.AddWithValue("@Haber", haber);
-                insertCmd.Parameters.AddWithValue("@Saldo", saldoNuevo);
-                insertCmd.Parameters.AddWithValue("@HaberBls", haberBls);
-                insertCmd.Parameters.AddWithValue("@SaldoBls", saldoBlsNuevo);
-                insertCmd.ExecuteNonQuery();
+                        // === REGISTRO EN CAJA ===
+                        string queryCaja = @"SELECT TOP 1 cajaID 
+                                     FROM Caja 
+                                     WHERE CAST(fecha AS DATE) = @fechaCaja";
+                        SqlCommand cmdCaja = new SqlCommand(queryCaja, conn, transaction);
+                        cmdCaja.Parameters.AddWithValue("@fechaCaja", fecha.Date);
 
-                // Actualizar CuentaCorrienteCliente
-                string updateCuentaCorriente = @"UPDATE CuentaCorrienteCliente 
-                                         SET SaldoPesos = @Saldo 
-                                         WHERE clienteID = @clienteID";
-                SqlCommand updateCmd = new SqlCommand(updateCuentaCorriente, conn);
-                updateCmd.Parameters.AddWithValue("@Saldo", saldoNuevo);
-                updateCmd.Parameters.AddWithValue("@clienteID", clienteID);
-                updateCmd.ExecuteNonQuery();
+                        object cajaIdObj = cmdCaja.ExecuteScalar();
+
+                        if (cajaIdObj == null)
+                        {
+                            // Buscar saldo final de la última caja
+                            SqlCommand cmdSaldoAnterior = new SqlCommand(
+                                @"SELECT TOP 1 saldoFinal 
+                          FROM Caja 
+                          WHERE fecha < @fechaCaja
+                          ORDER BY fecha DESC", conn, transaction);
+                            cmdSaldoAnterior.Parameters.AddWithValue("@fechaCaja", fecha.Date);
+                            object saldoAnteriorObj = cmdSaldoAnterior.ExecuteScalar();
+                            decimal saldoAnterior = saldoAnteriorObj != DBNull.Value ? Convert.ToDecimal(saldoAnteriorObj) : 0;
+
+                            // Crear nueva caja con saldo inicial y saldo final iguales
+                            SqlCommand cmdInsertCaja = new SqlCommand(
+                                @"INSERT INTO Caja (fecha, saldoInicial, saldoFinal) 
+                          VALUES (@fechaCaja, @saldoInicial, @saldoInicial);
+                          SELECT SCOPE_IDENTITY();", conn, transaction);
+                            cmdInsertCaja.Parameters.AddWithValue("@fechaCaja", fecha.Date);
+                            cmdInsertCaja.Parameters.AddWithValue("@saldoInicial", saldoAnterior);
+
+                            cajaIdObj = cmdInsertCaja.ExecuteScalar();
+                        }
+
+                        int cajaID = Convert.ToInt32(cajaIdObj);
+
+                        // Insertar movimiento en caja
+                        string insertMovimientoCaja = @"INSERT INTO MovimientoCaja 
+                                                (cajaID, fecha, tipoMovimiento, descripcion, monto, origen)
+                                                VALUES (@cajaID, @fecha, @tipoMovimiento, @descripcion, @monto, @origen)";
+                        SqlCommand cmdMovimiento = new SqlCommand(insertMovimientoCaja, conn, transaction);
+                        cmdMovimiento.Parameters.AddWithValue("@cajaID", cajaID);
+                        cmdMovimiento.Parameters.AddWithValue("@fecha", fecha);
+                        cmdMovimiento.Parameters.AddWithValue("@tipoMovimiento", "Ingreso");
+                        cmdMovimiento.Parameters.AddWithValue("@descripcion", detalle);
+                        cmdMovimiento.Parameters.AddWithValue("@monto", monto);
+                        cmdMovimiento.Parameters.AddWithValue("@origen", "Pago de cliente");
+                        cmdMovimiento.ExecuteNonQuery();
+
+                        // Actualizar saldo final de caja
+                        string updateSaldoFinalCaja = @"UPDATE Caja 
+                                                SET saldoFinal = ISNULL(saldoFinal, 0) + @monto
+                                                WHERE cajaID = @cajaID";
+                        SqlCommand cmdUpdateSaldoFinal = new SqlCommand(updateSaldoFinalCaja, conn, transaction);
+                        cmdUpdateSaldoFinal.Parameters.AddWithValue("@monto", monto);
+                        cmdUpdateSaldoFinal.Parameters.AddWithValue("@cajaID", cajaID);
+                        cmdUpdateSaldoFinal.ExecuteNonQuery();
+
+                        // Confirmar transacción
+                        transaction.Commit();
+                    }
+                    catch (Exception ex)
+                    {
+                        transaction.Rollback();
+                        MessageBox.Show("Error al registrar el pago: " + ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                        return;
+                    }
+                }
             }
 
-            // Limpiar y refrescar
+            // Limpiar campos y refrescar vista
             txtDetalle.Text = "";
             txtMonto.Text = "";
             CargarCuenta(clienteID);
         }
+
 
         private decimal ObtenerSaldoActual(int clienteID)
         {
