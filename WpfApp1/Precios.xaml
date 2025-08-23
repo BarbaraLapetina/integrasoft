@@ -1,7 +1,9 @@
 ﻿<UserControl x:Class="WpfApp1.Precios"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             Background="#FAFAFA">
+             Background="#FAFAFA"
+             xmlns:lvc="clr-namespace:LiveCharts.Wpf;assembly=LiveCharts.Wpf"
+>
     <Grid Margin="20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -102,6 +104,18 @@
                            FontSize="12"
                            Visibility="Collapsed"
                            Margin="0,10,0,0"/>
+                <!-- GRÁFICO: Evolución de precios -->
+                <Border Margin="0,20,0,0"
+        Background="White"
+        CornerRadius="10"
+        Padding="12"
+        BorderBrush="#e11d48"
+        BorderThickness="2"
+        MinHeight="260">
+                    <lvc:CartesianChart x:Name="chartPrecios"
+                        LegendLocation="Right"/>
+                </Border>
+
             </StackPanel>
 
             <!-- DERECHA: Historial -->

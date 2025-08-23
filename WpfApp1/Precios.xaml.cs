@@ -5,6 +5,11 @@ using System.Windows;
 using System.Collections.Generic;
 using System.Windows.Controls;
 
+using LiveCharts;
+using LiveCharts.Wpf;
+using System.Linq;
+
+
 namespace WpfApp1
 {
     public partial class Precios : UserControl
@@ -16,6 +21,8 @@ namespace WpfApp1
             InitializeComponent();
             CargarPrecioActual();
             CargarHistorial();
+            CargarGrafico();
+            txtNuevoPrecio.Text = string.Empty;
         }
 
         private void CargarPrecioActual()
@@ -25,7 +32,7 @@ namespace WpfApp1
                 conn.Open();
                 string query = "SELECT TOP 1 Fecha, Precio FROM ParametroPrecio ORDER BY Fecha DESC";
                 SqlCommand cmd = new SqlCommand(query, conn);
-                
+
                 SqlDataReader reader = cmd.ExecuteReader();
 
                 if (reader.Read())
@@ -59,10 +66,84 @@ namespace WpfApp1
 
             dgHistorial.ItemsSource = lista;
 
-          
+
         }
 
-        private void BtnActualizar_Click(object sender, RoutedEventArgs e) {
+        private void CargarGrafico()
+        {
+            var valores = new ChartValues<double>();
+            var etiquetas = new List<string>();
+
+            using (SqlConnection conn = new SqlConnection(connectionString))
+            {
+                // Orden ascendente para ver la evolución cronológica
+                string query = "SELECT Fecha, Precio FROM ParametroPrecio ORDER BY Fecha ASC";
+                SqlCommand cmd = new SqlCommand(query, conn);
+                conn.Open();
+
+                using (SqlDataReader reader = cmd.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        DateTime fecha = Convert.ToDateTime(reader["Fecha"]);
+                        double precio = Convert.ToDouble(reader["Precio"]);
+                        valores.Add(precio);
+                        etiquetas.Add(fecha.ToString("dd/MM"));
+                    }
+                }
+            }
+
+            // Si no hay datos, dejamos el chart vacío
+            if (valores.Count == 0)
+            {
+                chartPrecios.Series = new SeriesCollection();
+                chartPrecios.AxisX = new AxesCollection();
+                chartPrecios.AxisY = new AxesCollection();
+                return;
+            }
+
+            // Mostrar solo los últimos 12 puntos para que no se amontonen
+            int take = Math.Min(valores.Count, 12);
+            var ultimosValores = new ChartValues<double>(valores.Skip(valores.Count - take).Take(take));
+            var ultimasEtiquetas = etiquetas.Skip(etiquetas.Count - take).Take(take).ToArray();
+
+            chartPrecios.Series = new SeriesCollection
+    {
+        new LineSeries
+        {
+            Title = "Precio (ARS)",
+            Values = ultimosValores,
+            PointGeometrySize = 8,
+            LineSmoothness = 0.6,
+            Stroke = System.Windows.Media.Brushes.SteelBlue,
+            Fill = new System.Windows.Media.SolidColorBrush(
+                      System.Windows.Media.Color.FromArgb(60, 70, 130, 180)) // SteelBlue con alpha
+        }
+    };
+
+            chartPrecios.AxisX = new AxesCollection
+    {
+        new Axis
+        {
+            Labels = ultimasEtiquetas,
+            Separator = new LiveCharts.Wpf.Separator { Step = 1 }
+
+            // LabelsRotation = 45, // activá si se pisan
+        }
+    };
+
+            chartPrecios.AxisY = new AxesCollection
+    {
+        new Axis
+        {
+            LabelFormatter = v => $"$ {v:N0}"
+        }
+    };
+        }
+
+
+        private void BtnActualizar_Click(object sender, RoutedEventArgs e)
+        {
             if (decimal.TryParse(txtNuevoPrecio.Text, out decimal nuevoPrecio))
             {
 
@@ -134,13 +215,13 @@ namespace WpfApp1
             }
         }
     }
-            
 
-    }
 
-    public class HistorialPrecio
-    {
-        public string Fecha { get; set; }
-        public string Precio { get; set; }
-    }
+}
+
+public class HistorialPrecio
+{
+    public string Fecha { get; set; }
+    public string Precio { get; set; }
+}
 
