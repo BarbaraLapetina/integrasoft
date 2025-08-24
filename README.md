@@ -12,6 +12,6 @@ git branch
 
 ### Si querés realizar un cambio sobre la rama experimento
 
-git add .
-git commit -m "mensaje"
+git add . /n
+git commit -m "mensaje" /n
 git push origin experimento
