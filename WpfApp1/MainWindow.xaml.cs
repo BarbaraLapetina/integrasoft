@@ -55,6 +55,16 @@ namespace WpfApp1
         {
             MainContent.Content = new WpfApp1.Caja();
         }
+
+        private async void Window_Loaded(object sender, RoutedEventArgs e)
+        {
+            // cede un tick al UI para que el árbol visual quede listo
+            await System.Threading.Tasks.Task.Yield();
+
+            // muestra el Dashboard por defecto
+            MainContent.Content = new WpfApp1.ControlGeneral();
+        }
+
     }
 
 }

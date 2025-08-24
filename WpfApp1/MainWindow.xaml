@@ -6,7 +6,9 @@
         xmlns:fa="clr-namespace:FontAwesome.WPF;assembly=FontAwesome.WPF"
         xmlns:local="clr-namespace:WpfApp1"  
     mc:Ignorable="d"
-        Title="IntegraSoft" Height="600" Width="900" Background="#F5F6FA">
+        Title="IntegraSoft" Height="600" Width="900" Background="#F5F6FA"
+        Loaded="Window_Loaded">
+
 
     <Window.Resources>
         <Style x:Key="MenuButton" TargetType="Button">

@@ -50,40 +50,130 @@ namespace WpfApp1
             }
         }
 
+        //private void VerificarOAbrirCaja(DateTime fechaSeleccionada)
+        //{
+        //    using (SqlConnection conn = new SqlConnection(connectionString))
+        //    {
+        //        conn.Open();
+
+        //        SqlCommand cmdExiste = new SqlCommand(
+        //            "SELECT COUNT(*) FROM Caja WHERE fecha = @fecha", conn);
+        //        cmdExiste.Parameters.AddWithValue("@fecha", fechaSeleccionada.Date);
+
+        //        int existe = (int)cmdExiste.ExecuteScalar();
+
+        //        if (existe == 0)
+        //        {
+        //            SqlCommand cmdSaldo = new SqlCommand(
+        //                @"SELECT TOP 1 saldoFinal 
+        //              FROM Caja 
+        //              WHERE fecha < @fecha
+        //              ORDER BY fecha DESC", conn);
+        //            cmdSaldo.Parameters.AddWithValue("@fecha", fechaSeleccionada.Date);
+
+        //            object saldoAnteriorObj = cmdSaldo.ExecuteScalar();
+        //            decimal saldoAnterior = saldoAnteriorObj != DBNull.Value ? Convert.ToDecimal(saldoAnteriorObj) : 0;
+
+        //            SqlCommand cmdInsert = new SqlCommand(
+        //                @"INSERT INTO Caja (fecha, saldoInicial) 
+        //              VALUES (@fecha, @saldoInicial)", conn);
+        //            cmdInsert.Parameters.AddWithValue("@fecha", fechaSeleccionada.Date);
+        //            cmdInsert.Parameters.AddWithValue("@saldoInicial", saldoAnterior);
+
+        //            cmdInsert.ExecuteNonQuery();
+        //        }
+        //    }
+        //}
+
         private void VerificarOAbrirCaja(DateTime fechaSeleccionada)
         {
+            var hoy = fechaSeleccionada.Date;
+            var ayer = hoy.AddDays(-1);
+
             using (SqlConnection conn = new SqlConnection(connectionString))
             {
                 conn.Open();
 
-                SqlCommand cmdExiste = new SqlCommand(
-                    "SELECT COUNT(*) FROM Caja WHERE fecha = @fecha", conn);
-                cmdExiste.Parameters.AddWithValue("@fecha", fechaSeleccionada.Date);
+                // (1) Cerrar/recalcular AYER (si existió)
+                using (var cmd = new SqlCommand(@"
+            UPDATE c
+            SET c.saldoFinal = c.saldoInicial 
+                               + ISNULL(t.Ingresos,0) 
+                               - ISNULL(t.Egresos,0)
+            FROM Caja c
+            OUTER APPLY (
+               SELECT 
+                 SUM(CASE WHEN RTRIM(m.tipoMovimiento)='Ingreso' THEN m.monto END) AS Ingresos,
+                 SUM(CASE WHEN RTRIM(m.tipoMovimiento)='Egreso'  THEN m.monto END) AS Egresos
+               FROM MovimientoCaja m
+               WHERE m.cajaID = c.cajaID
+            ) t
+            WHERE c.fecha >= @f AND c.fecha < DATEADD(day,1,@f);
+        ", conn))
+                {
+                    cmd.Parameters.Add("@f", SqlDbType.DateTime).Value = ayer;
+                    cmd.ExecuteNonQuery();
+                }
 
-                int existe = (int)cmdExiste.ExecuteScalar();
+                // (2) Tomar el saldo REAL de ayer (saldoFinal o recalculado)
+                decimal saldoAyer;
+                using (var cmd = new SqlCommand(@"
+            SELECT TOP 1 
+                   COALESCE(
+                     c.saldoFinal,
+                     c.saldoInicial + ISNULL(t.Ingresos,0) - ISNULL(t.Egresos,0),
+                     0
+                   ) AS saldoAyer
+            FROM Caja c
+            OUTER APPLY (
+               SELECT 
+                 SUM(CASE WHEN RTRIM(m.tipoMovimiento)='Ingreso' THEN m.monto END) AS Ingresos,
+                 SUM(CASE WHEN RTRIM(m.tipoMovimiento)='Egreso'  THEN m.monto END) AS Egresos
+               FROM MovimientoCaja m
+               WHERE m.cajaID = c.cajaID
+            ) t
+            WHERE c.fecha < @hoy
+            ORDER BY c.fecha DESC;", conn))
+                {
+                    cmd.Parameters.Add("@hoy", SqlDbType.DateTime).Value = hoy;
+                    object obj = cmd.ExecuteScalar();
+                    saldoAyer = (obj == null || obj == DBNull.Value) ? 0m : Convert.ToDecimal(obj);
+                }
+
+                // (3) Abrir hoy con ese saldo (o sincronizar si ya existe)
+                int existe;
+                using (var cmd = new SqlCommand("SELECT COUNT(*) FROM Caja WHERE fecha = @hoy", conn))
+                {
+                    cmd.Parameters.AddWithValue("@hoy", hoy);
+                    existe = (int)cmd.ExecuteScalar();
+                }
 
                 if (existe == 0)
                 {
-                    SqlCommand cmdSaldo = new SqlCommand(
-                        @"SELECT TOP 1 saldoFinal 
-                      FROM Caja 
-                      WHERE fecha < @fecha
-                      ORDER BY fecha DESC", conn);
-                    cmdSaldo.Parameters.AddWithValue("@fecha", fechaSeleccionada.Date);
-
-                    object saldoAnteriorObj = cmdSaldo.ExecuteScalar();
-                    decimal saldoAnterior = saldoAnteriorObj != DBNull.Value ? Convert.ToDecimal(saldoAnteriorObj) : 0;
-
-                    SqlCommand cmdInsert = new SqlCommand(
-                        @"INSERT INTO Caja (fecha, saldoInicial) 
-                      VALUES (@fecha, @saldoInicial)", conn);
-                    cmdInsert.Parameters.AddWithValue("@fecha", fechaSeleccionada.Date);
-                    cmdInsert.Parameters.AddWithValue("@saldoInicial", saldoAnterior);
-
-                    cmdInsert.ExecuteNonQuery();
+                    using (var cmd = new SqlCommand(
+                        "INSERT INTO Caja (fecha, saldoInicial) VALUES (@hoy, @saldoInicial);", conn))
+                    {
+                        cmd.Parameters.AddWithValue("@hoy", hoy);
+                        cmd.Parameters.AddWithValue("@saldoInicial", saldoAyer);
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+                else
+                {
+                    // opcional: mantener sincronizado el saldoInicial si cambió
+                    using (var cmd = new SqlCommand(@"
+                UPDATE Caja
+                SET saldoInicial = @saldoAyer
+                WHERE fecha = @hoy AND saldoInicial <> @saldoAyer;", conn))
+                    {
+                        cmd.Parameters.AddWithValue("@hoy", hoy);
+                        cmd.Parameters.AddWithValue("@saldoAyer", saldoAyer);
+                        cmd.ExecuteNonQuery();
+                    }
                 }
             }
         }
+
 
         public void CargarDatosCaja(DateTime fechaSeleccionada)
         {
@@ -166,6 +256,35 @@ namespace WpfApp1
             txtTotalEgresos.Text = totalEgresos.ToString("C2");
             txtTotalSaldo.Text = (saldoInicial + totalIngresos - totalEgresos).ToString("C2");
         }
+
+        // === NUEVO: recalcula y guarda saldoFinal del día indicado ===
+        private void RecalcularYGuardarSaldoFinal(DateTime fechaCaja)
+        {
+            using (var conn = new SqlConnection(connectionString))
+            {
+                conn.Open();
+                using (var cmd = new SqlCommand(@"
+            UPDATE c
+            SET c.saldoFinal = c.saldoInicial 
+                               + ISNULL(t.Ingresos,0) 
+                               - ISNULL(t.Egresos,0)
+            FROM Caja c
+            OUTER APPLY (
+               SELECT 
+                 SUM(CASE WHEN RTRIM(m.tipoMovimiento)='Ingreso' THEN m.monto END) AS Ingresos,
+                 SUM(CASE WHEN RTRIM(m.tipoMovimiento)='Egreso'  THEN m.monto END) AS Egresos
+               FROM MovimientoCaja m
+               WHERE m.cajaID = c.cajaID
+            ) t
+            WHERE c.fecha >= @f AND c.fecha < DATEADD(day,1,@f);
+        ", conn))
+                {
+                    cmd.Parameters.Add("@f", SqlDbType.DateTime).Value = fechaCaja.Date;
+                    cmd.ExecuteNonQuery();
+                }
+            }
+        }
+
 
         private void BtnGasto_Click(object sender, RoutedEventArgs e)
         {
