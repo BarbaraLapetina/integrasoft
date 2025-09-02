@@ -213,6 +213,8 @@ namespace WpfApp1
             {
                 MessageBox.Show("Por favor, ingrese un precio válido.");
             }
+
+            CargarGrafico();
         }
     }
 
