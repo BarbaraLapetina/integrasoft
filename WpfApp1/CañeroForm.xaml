@@ -41,12 +41,16 @@
 
             <!-- Teléfono -->
             <TextBlock Text="Teléfono:" FontWeight="SemiBold" Foreground="#555" FontSize="14"/>
-            <TextBox x:Name="txtTelefono" Height="28" FontSize="14"/>
+            <TextBox x:Name="txtTelefono" Height="28" PreviewTextInput="SoloNumeros_PreviewTextInput" TextChanged="txtTelefono_TextChanged" FontSize="14"/>
+            <TextBlock x:Name="lblErrorTelefono" Foreground="Red" FontSize="10" Visibility="Collapsed" Text="Solo se permiten números." />
 
             <!-- Email -->
             <TextBlock Text="Email:" FontWeight="SemiBold" Foreground="#555" FontSize="14"/>
             <TextBox x:Name="txtEmail" Height="28" FontSize="14"/>
-
+            
+            <TextBlock Text="Telefono Contador:" FontWeight="SemiBold" Foreground="#555" FontSize="14"/>
+            <TextBox x:Name="txtTelefonoContador" Height="28" PreviewTextInput="SoloNumeros_PreviewTextInput" TextChanged="txtTelefonoContador_TextChanged" FontSize="14"/>
+            <TextBlock x:Name="lblErrorTelefonoContador" Foreground="Red" FontSize="10" Visibility="Collapsed" Text="Solo se permiten números." />
             <!-- Botón Agregar -->
 
             <Button Height="46"
@@ -64,6 +68,9 @@ Padding="10,0">
            FontWeight="Bold"
            VerticalAlignment="Center"/>
                 </StackPanel>
+                <Button.Effect>
+                    <DropShadowEffect Color="#888" ShadowDepth="2" BlurRadius="4"/>
+                </Button.Effect>
             </Button>
 
         </StackPanel>

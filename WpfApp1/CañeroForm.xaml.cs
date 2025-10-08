@@ -18,13 +18,24 @@ namespace WpfApp1
 
         private void BtnAgregar_Click(object sender, RoutedEventArgs e)
         {
-            string apellido = txtApellido.Text;
-            string nombre = txtNombre.Text;
+            string apellido = txtApellido.Text.Trim();
+            string nombre = txtNombre.Text.Trim();
             string dni = txtDNI.Text;
             string direccion = txtDireccion.Text;
             string telefono = txtTelefono.Text;
             string email = txtEmail.Text;
+            string telefonoContador = txtTelefonoContador.Text;
             DateTime fechaAlta = DateTime.Now;
+
+            // ✅ Validar campos obligatorios
+            if (string.IsNullOrWhiteSpace(apellido) || string.IsNullOrWhiteSpace(nombre))
+            {
+                MessageBox.Show("Debe completar los campos 'Apellido' y 'Nombre' antes de continuar.",
+                                "Campos incompletos",
+                                MessageBoxButton.OK,
+                                MessageBoxImage.Warning);
+                return; // Detiene la ejecución si faltan datos
+            }
 
             string connectionString = "Server=localhost;Database=Cristo;Trusted_Connection=True;";
 
@@ -35,10 +46,26 @@ namespace WpfApp1
 
                 try
                 {
-                    // Insertar cliente sin especificar el proveedorID
+                    // Verificar si el DNI ya existe
+                    string checkDNI = "SELECT COUNT(*) FROM Proveedor WHERE DNI = @DNI";
+                    SqlCommand cmdCheck = new SqlCommand(checkDNI, conn, transaction);
+                    cmdCheck.Parameters.AddWithValue("@DNI", dni);
+
+                    int existe = (int)cmdCheck.ExecuteScalar();
+                    if (existe > 0)
+                    {
+                        MessageBox.Show("Ya existe un proveedor registrado con ese DNI.",
+                                        "Error",
+                                        MessageBoxButton.OK,
+                                        MessageBoxImage.Warning);
+                        transaction.Rollback();
+                        return;
+                    }
+
+                    // Insertar proveedor
                     string insertProveedor = @"
-                INSERT INTO Proveedor (Apellido, Nombre, DNI, Direccion, Telefono, Email, FechaAlta)
-                VALUES (@Apellido, @Nombre, @DNI, @Direccion, @Telefono, @Email, @FechaAlta);
+                INSERT INTO Proveedor (Apellido, Nombre, DNI, Direccion, Telefono, Email, FechaAlta, TelefonoContador)
+                VALUES (@Apellido, @Nombre, @DNI, @Direccion, @Telefono, @Email, @FechaAlta, @TelefonoContador);
                 SELECT SCOPE_IDENTITY();";
 
                     SqlCommand cmdProveedor = new SqlCommand(insertProveedor, conn, transaction);
@@ -49,14 +76,15 @@ namespace WpfApp1
                     cmdProveedor.Parameters.AddWithValue("@Telefono", telefono);
                     cmdProveedor.Parameters.AddWithValue("@Email", email);
                     cmdProveedor.Parameters.AddWithValue("@FechaAlta", fechaAlta);
+                    cmdProveedor.Parameters.AddWithValue("@TelefonoContador", telefonoContador);
 
                     // Obtener ID recién generado
                     int nuevoProveedorID = Convert.ToInt32(cmdProveedor.ExecuteScalar());
 
                     // Insertar cuenta corriente asociada
                     string insertCuenta = @"
-                INSERT INTO CuentaCorrienteProveedor (proveedorID, SaldoPesos, SaldoBolsas)
-                VALUES (@proveedorID, 0, 0)";
+                INSERT INTO CuentaCorrienteProveedor (proveedorID, SaldoBolsas)
+                VALUES (@proveedorID, 0)";
 
                     SqlCommand cmdCuenta = new SqlCommand(insertCuenta, conn, transaction);
                     cmdCuenta.Parameters.AddWithValue("@proveedorID", nuevoProveedorID);
@@ -65,14 +93,21 @@ namespace WpfApp1
                     // Confirmar transacción
                     transaction.Commit();
 
-                    MessageBox.Show("Cañero y cuenta corriente creados correctamente.", "Éxito", MessageBoxButton.OK, MessageBoxImage.Information);
+                    MessageBox.Show("Cañero y cuenta corriente creados correctamente.",
+                                    "Éxito",
+                                    MessageBoxButton.OK,
+                                    MessageBoxImage.Information);
+
                     parentControl.RecargarProveedores();
-                    this.Close(); // Cierra la ventana del formulario
+                    this.Close();
                 }
                 catch (Exception ex)
                 {
                     transaction.Rollback();
-                    MessageBox.Show("Error al agregar cañero: " + ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show("Error al agregar cañero: " + ex.Message,
+                                    "Error",
+                                    MessageBoxButton.OK,
+                                    MessageBoxImage.Error);
                 }
             }
         }
@@ -101,12 +136,22 @@ namespace WpfApp1
         {
             if (!EsSoloNumeros(e.Text))
             {
-                lblErrorDNI.Visibility = Visibility.Visible;
+                if (sender == txtDNI)
+                    lblErrorDNI.Visibility = Visibility.Visible;
+                else if (sender == txtTelefono)
+                    lblErrorTelefono.Visibility = Visibility.Visible;
+                else if (sender == txtTelefonoContador)
+                    lblErrorTelefonoContador.Visibility = Visibility.Visible;
                 e.Handled = true;
             }
             else
             {
-                lblErrorDNI.Visibility = Visibility.Collapsed;
+                if (sender == txtDNI)
+                    lblErrorDNI.Visibility = Visibility.Collapsed;
+                else if (sender == txtTelefono)
+                    lblErrorTelefono.Visibility = Visibility.Collapsed;
+                else if (sender == txtTelefonoContador)
+                    lblErrorTelefonoContador.Visibility = Visibility.Collapsed;
             }
         }
 
@@ -144,6 +189,16 @@ namespace WpfApp1
         private void txtDNI_TextChanged(object sender, TextChangedEventArgs e)
         {
             lblErrorDNI.Visibility = Visibility.Collapsed;
+        }
+
+        private void txtTelefono_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            lblErrorTelefono.Visibility = Visibility.Collapsed;
+        }
+
+        private void txtTelefonoContador_TextChanged (object sender, TextChangedEventArgs e)
+        {
+            lblErrorTelefonoContador.Visibility = Visibility.Collapsed;
         }
 
 

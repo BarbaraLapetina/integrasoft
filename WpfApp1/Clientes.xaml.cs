@@ -27,7 +27,7 @@ namespace WpfApp1
 
             using (SqlConnection conn = new SqlConnection(connectionString))
             {
-                string query = "SELECT clienteID, Apellido, Nombre, DNI, Direccion, Email, Telefo, Estado, FechaAlta FROM Cliente";
+                string query = "SELECT clienteID, Apellido, Nombre, DNI, Direccion, Email, Telefo, Estado, Observaciones FROM Cliente";
                 SqlCommand cmd = new SqlCommand(query, conn);
                 conn.Open();
                 SqlDataReader reader = cmd.ExecuteReader();
@@ -44,7 +44,7 @@ namespace WpfApp1
                         Email = reader["Email"].ToString(),
                         Telefo = reader["Telefo"].ToString(),
                         Estado = reader["Estado"].ToString(),
-                        FechaAlta = Convert.ToDateTime(reader["FechaAlta"])
+                        Observaciones = reader["Observaciones"].ToString()
                     });
                 }
             }
@@ -65,6 +65,7 @@ namespace WpfApp1
                 txtTelefo.Text = clienteSeleccionado.Telefo;
                 txtEmail.Text = clienteSeleccionado.Email;
                 cmbEstado.SelectedItem = clienteSeleccionado.Estado;
+                txtObservaciones.Text = clienteSeleccionado.Observaciones;
 
                 // Obtener saldo y precio
                 using (SqlConnection conn = new SqlConnection(connectionString))
@@ -78,17 +79,6 @@ namespace WpfApp1
                     object saldoObj = cmdSaldo.ExecuteScalar();
                     decimal saldoPesos = saldoObj != null ? Convert.ToDecimal(saldoObj) : 0;
                     txtSaldo.Text = $"$ {saldoPesos:N2}";
-
-
-                    // Obtener el último precio de bolsa desde ParametroPrecio
-                    string queryPrecio = "SELECT TOP 1 Precio FROM ParametroPrecio ORDER BY Fecha DESC";
-                    SqlCommand cmdPrecio = new SqlCommand(queryPrecio, conn);
-                    object precioObj = cmdPrecio.ExecuteScalar();
-                    decimal precioBolsa = precioObj != null ? Convert.ToDecimal(precioObj) : 1;
-
-                    // Calcular saldo en bolsas
-                    decimal saldoBolsas = (precioBolsa != 0 ? Math.Abs(saldoPesos) / precioBolsa : 0);
-                    txtSaldoBolsas.Text = $"{saldoBolsas:N2}";
                 }
             }
         }
@@ -120,21 +110,69 @@ namespace WpfApp1
         {
             if (dgClientes.SelectedItem is Cliente cliente)
             {
-                cliente.Nombre = txtNombre.Text;
-                cliente.Apellido = txtApellido.Text;
-                cliente.DNI = txtDNI.Text;
-                cliente.Direccion = txtDireccion.Text;
-                cliente.Telefo = txtTelefo.Text;
-                cliente.Email = txtEmail.Text;
-                if (cmbEstado.SelectedItem is ComboBoxItem selectedItem && selectedItem.Content != null)
+                // Tomar los valores del formulario
+                string nombre = txtNombre.Text.Trim();
+                string apellido = txtApellido.Text.Trim();
+                string dni = txtDNI.Text.Trim();
+                string direccion = txtDireccion.Text.Trim();
+                string telefono = txtTelefo.Text.Trim();
+                string email = txtEmail.Text.Trim();
+                string estado = (cmbEstado.SelectedItem as ComboBoxItem)?.Content.ToString() ?? "Activo";
+                string observaciones = txtObservaciones.Text.Trim();
+
+                // VALIDACIONES
+                if (string.IsNullOrWhiteSpace(nombre) || !EsSoloLetras(nombre))
                 {
-                    cliente.Estado = selectedItem.Content.ToString();
-                }
-                else
-                {
-                    cliente.Estado = "Activo"; // o cualquier estado por defecto válido
+                    MessageBox.Show("El campo Nombre es obligatorio y solo puede contener letras.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
                 }
 
+                if (string.IsNullOrWhiteSpace(apellido) || !EsSoloLetras(apellido))
+                {
+                    MessageBox.Show("El campo Apellido es obligatorio y solo puede contener letras.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+
+                if (string.IsNullOrWhiteSpace(dni) || !EsSoloNumeros(dni))
+                {
+                    MessageBox.Show("El campo DNI es obligatorio y solo puede contener números.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+
+                if (string.IsNullOrWhiteSpace(telefono) || !EsSoloNumeros(telefono))
+                {
+                    MessageBox.Show("El campo Teléfono es obligatorio y solo puede contener números.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+
+                // VALIDAR QUE EL DNI NO EXISTA EN OTRO CLIENTE
+                using (SqlConnection conn = new SqlConnection(connectionString))
+                {
+                    conn.Open();
+                    string queryDni = "SELECT COUNT(*) FROM Cliente WHERE DNI = @DNI AND clienteID <> @clienteID";
+                    SqlCommand cmdDni = new SqlCommand(queryDni, conn);
+                    cmdDni.Parameters.AddWithValue("@DNI", dni);
+                    cmdDni.Parameters.AddWithValue("@clienteID", cliente.clienteID);
+                    int count = (int)cmdDni.ExecuteScalar();
+
+                    if (count > 0)
+                    {
+                        MessageBox.Show("Ya existe otro cliente con ese DNI. No se pueden guardar los cambios.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                        return;
+                    }
+                }
+
+                // Si pasaron todas las validaciones, actualizar el objeto
+                cliente.Nombre = nombre;
+                cliente.Apellido = apellido;
+                cliente.DNI = dni;
+                cliente.Direccion = direccion;
+                cliente.Telefo = telefono;
+                cliente.Email = email;
+                cliente.Estado = estado;
+                cliente.Observaciones = observaciones;
+
+                // ACTUALIZAR BASE DE DATOS
                 using (SqlConnection conn = new SqlConnection(connectionString))
                 {
                     string query = @"UPDATE Cliente 
@@ -144,7 +182,8 @@ namespace WpfApp1
                                  Direccion = @Direccion,
                                  Email = @Email,
                                  Telefo = @Telefo,
-                                 Estado = @Estado
+                                 Estado = @Estado,
+                                 Observaciones = @Observaciones
                              WHERE clienteID = @clienteID";
 
                     SqlCommand cmd = new SqlCommand(query, conn);
@@ -155,6 +194,7 @@ namespace WpfApp1
                     cmd.Parameters.AddWithValue("@Email", cliente.Email);
                     cmd.Parameters.AddWithValue("@Telefo", cliente.Telefo);
                     cmd.Parameters.AddWithValue("@Estado", cliente.Estado);
+                    cmd.Parameters.AddWithValue("@Observaciones", cliente.Observaciones);
                     cmd.Parameters.AddWithValue("@clienteID", cliente.clienteID);
 
                     conn.Open();
@@ -162,7 +202,6 @@ namespace WpfApp1
                 }
 
                 MessageBox.Show("Los cambios se guardaron correctamente.", "Éxito", MessageBoxButton.OK, MessageBoxImage.Information);
-
                 CargarClientes(); // Refresca la lista completa
             }
             else
@@ -170,6 +209,7 @@ namespace WpfApp1
                 MessageBox.Show("Por favor, seleccione un cliente para modificar.", "Aviso", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
+
 
         private void BtnVerCuenta_Click(object sender, RoutedEventArgs e)
         {
@@ -200,15 +240,6 @@ namespace WpfApp1
                     object saldoObj = cmdSaldo.ExecuteScalar();
                     decimal saldoPesos = saldoObj != null ? Convert.ToDecimal(saldoObj) : 0;
                     txtSaldo.Text = $"$ {saldoPesos:N2}";
-
-                    string queryPrecio = "SELECT TOP 1 Precio FROM ParametroPrecio ORDER BY Fecha DESC";
-                    SqlCommand cmdPrecio = new SqlCommand(queryPrecio, conn);
-                    object precioObj = cmdPrecio.ExecuteScalar();
-                    decimal precioBolsa = precioObj != null ? Convert.ToDecimal(precioObj) : 1;
-
-                    decimal saldoBolsas = (precioBolsa != 0 ? Math.Abs(saldoPesos) / precioBolsa : 0);
-
-                    txtSaldoBolsas.Text = $"{saldoBolsas:N2}";
                 }
             }
         }
@@ -237,12 +268,19 @@ namespace WpfApp1
         {
             if (!EsSoloNumeros(e.Text))
             {
-                lblErrorDNI.Visibility = Visibility.Visible;
+                if (sender == txtDNI)
+                    lblErrorDNI.Visibility = Visibility.Visible;
+                else if (sender == txtTelefo)
+                    lblErrorTelefono.Visibility = Visibility.Visible;
+
                 e.Handled = true;
             }
             else
             {
-                lblErrorDNI.Visibility = Visibility.Collapsed;
+                if (sender == txtDNI)
+                    lblErrorDNI.Visibility = Visibility.Collapsed;
+                else if (sender == txtTelefo)
+                    lblErrorTelefono.Visibility = Visibility.Collapsed;
             }
         }
 
@@ -282,6 +320,11 @@ namespace WpfApp1
             lblErrorDNI.Visibility = Visibility.Collapsed;
         }
 
+        private void txtTelefono_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            lblErrorTelefono.Visibility = Visibility.Collapsed;
+        }
+
 
     }
 
@@ -295,6 +338,6 @@ namespace WpfApp1
         public string Email { get; set; }
         public string Telefo { get; set; } // nombre exacto de la columna
         public string Estado { get; set; }
-        public DateTime FechaAlta { get; set; }
+        public string Observaciones { get; set; }
     }
 }

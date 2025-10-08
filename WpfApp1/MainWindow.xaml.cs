@@ -21,13 +21,13 @@ namespace WpfApp1
             InitializeComponent();
         }
 
-        private void BtnControlGeneral_Click(object sender, RoutedEventArgs e)
+        private void BtnDashboard_Click(object sender, RoutedEventArgs e)
         {
-            MainContent.Content = new WpfApp1.ControlGeneral();
+            MainContent.Content = new WpfApp1.Dashboard();
         }
-        private void BtnPrecios_Click(object sender, RoutedEventArgs e)
+        private void BtnStock_Click(object sender, RoutedEventArgs e)
         {
-            MainContent.Content = new WpfApp1.Precios(); // Cambiá "TuApp" si usás otro namespace
+            MainContent.Content = new WpfApp1.Stock(); // Cambiá "TuApp" si usás otro namespace
         }
 
         private void BtnClientes_Click(object sender, RoutedEventArgs e)

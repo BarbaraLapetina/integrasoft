@@ -32,13 +32,25 @@ namespace WpfApp1
 
         private void BtnAgregar_Click(object sender, RoutedEventArgs e)
         {
+            // 1️⃣ Validaciones
+            if (string.IsNullOrWhiteSpace(txtDetalle.Text))
+            {
+                MessageBox.Show("El campo Detalle no puede estar vacío.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            if (!decimal.TryParse(txtMonto.Text, out decimal monto) || monto <= 0)
+            {
+                MessageBox.Show("Ingrese un monto válido (solo números positivos).", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
             using (SqlConnection conn = new SqlConnection(connectionString))
             {
                 conn.Open();
 
                 DateTime fecha = DateTime.Parse(txtFecha.Text);
                 string detalle = txtDetalle.Text;
-                decimal monto;
 
                 if (!decimal.TryParse(txtMonto.Text, out monto) || monto <= 0)
                 {
@@ -96,6 +108,15 @@ namespace WpfApp1
                 cmdMov.Parameters.AddWithValue("@monto", monto);
                 cmdMov.ExecuteNonQuery();
 
+                // 2️⃣b Insertar en tabla Gasto para historial
+                SqlCommand cmdGasto = new SqlCommand(@"
+    INSERT INTO Gasto (fecha, detalle, monto)
+    VALUES (@fecha, @detalle, @monto)", conn);
+                cmdGasto.Parameters.AddWithValue("@fecha", fecha);
+                cmdGasto.Parameters.AddWithValue("@detalle", detalle);
+                cmdGasto.Parameters.AddWithValue("@monto", monto);
+                cmdGasto.ExecuteNonQuery();
+
                 // 3️⃣ Actualizar saldoFinal (si está NULL usa saldoInicial como base)
                 SqlCommand cmdUpdateSaldo = new SqlCommand(@"
             UPDATE Caja
@@ -113,6 +134,36 @@ namespace WpfApp1
 
             // 5️⃣ Cerrar formulario
             this.Close();
+        }
+
+        // Evita que se escriban letras o signos negativos
+        private void txtMonto_PreviewTextInput(object sender, System.Windows.Input.TextCompositionEventArgs e)
+        {
+            e.Handled = !EsMontoValido(((TextBox)sender).Text + e.Text);
+        }
+
+        // Evita pegar texto inválido
+        private void txtMonto_Pasting(object sender, DataObjectPastingEventArgs e)
+        {
+            if (e.DataObject.GetDataPresent(typeof(string)))
+            {
+                string text = (string)e.DataObject.GetData(typeof(string));
+                TextBox tb = sender as TextBox;
+                if (!EsMontoValido(tb.Text + text))
+                {
+                    e.CancelCommand();
+                }
+            }
+            else
+            {
+                e.CancelCommand();
+            }
+        }
+
+        // Validación de monto positivo
+        private bool EsMontoValido(string input)
+        {
+            return decimal.TryParse(input, out decimal result) && result > 0;
         }
 
     }

@@ -27,8 +27,7 @@ namespace WpfApp1
         public VentaParticularForm()
         {
             InitializeComponent();
-            CargarProductos();
-            CargarPrecioActual();
+            CargarProductos();            
             txtFecha.Text = DateTime.Now.ToString("yyyy-MM-dd");
         }
 
@@ -52,30 +51,33 @@ namespace WpfApp1
                 cbProducto.SelectedValuePath = "productoID";
             }
         }
-        private void CargarPrecioActual()
-        {
-            using (SqlConnection conn = new SqlConnection(connectionString))
-            {
-                conn.Open();
-                SqlCommand cmd = new SqlCommand("SELECT TOP 1 Precio FROM ParametroPrecio ORDER BY Fecha DESC", conn);
-                precioActualBolsa = Convert.ToDecimal(cmd.ExecuteScalar());
-            }
-        }
+
 
         private void BtnAgregar_Click(object sender, RoutedEventArgs e)
         {
-            if (cbProducto.SelectedItem == null || string.IsNullOrWhiteSpace(txtCantidad.Text))
+            // 1. Validar producto seleccionado
+            if (cbProducto.SelectedItem == null)
             {
-                MessageBox.Show("Selecciona un producto y cantidad válida.");
+                MessageBox.Show("Por favor, seleccione un producto.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            // 2. Validar cantidad
+            if (string.IsNullOrWhiteSpace(txtCantidad.Text) || !int.TryParse(txtCantidad.Text, out int cantidad) || cantidad <= 0)
+            {
+                MessageBox.Show("Ingrese una cantidad válida (mayor a 0).", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            // 3. Validar precio
+            if (string.IsNullOrWhiteSpace(txtPrecio.Text) || !decimal.TryParse(txtPrecio.Text, out decimal precioUnitario) || precioUnitario <= 0)
+            {
+                MessageBox.Show("Ingrese un precio válido (mayor a 0).", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
             int productoID = (int)((dynamic)cbProducto.SelectedItem).productoID;
-            string nombreProducto = ((dynamic)cbProducto.SelectedItem).Nombre;
-            int cantidad = int.Parse(txtCantidad.Text);
-
-            int cantidadBolsas = ObtenerCantidadBolsas(productoID);
-            decimal precioUnitario = cantidadBolsas * precioActualBolsa;
+            string nombreProducto = ((dynamic)cbProducto.SelectedItem).Nombre;          
             decimal subtotal = cantidad * precioUnitario;
 
             detalleVenta.Add(new DetalleVentaItem
@@ -92,6 +94,9 @@ namespace WpfApp1
             dgDetalle.ItemsSource = detalleVenta;
 
             txtTotal.Text = detalleVenta.Sum(i => i.Subtotal).ToString("C");
+
+            txtCantidad.Text = string.Empty;
+            txtPrecio.Text = string.Empty;
 
         }
 
@@ -110,16 +115,7 @@ namespace WpfApp1
                 MessageBox.Show("Selecciona una fila para eliminar.", "Aviso", MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
-        private int ObtenerCantidadBolsas(int productoID)
-        {
-            using (SqlConnection conn = new SqlConnection(connectionString))
-            {
-                conn.Open();
-                SqlCommand cmd = new SqlCommand("SELECT CantidadBolsas FROM Producto WHERE ProductoID = @id", conn);
-                cmd.Parameters.AddWithValue("@id", productoID);
-                return Convert.ToInt32(cmd.ExecuteScalar());
-            }
-        }
+        
 
         private void BtnRegistrarVenta_Click(object sender, RoutedEventArgs e)
         {
@@ -247,8 +243,6 @@ namespace WpfApp1
     }
 
 
-
-    // Clases auxiliares
     public class Producto
     {
         public int ProductoID { get; set; }

@@ -1,0 +1,200 @@
+﻿<UserControl x:Class="WpfApp1.Stock"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:fa="http://schemas.fontawesome.io/icons/"
+             mc:Ignorable="d"
+             d:DesignHeight="600" d:DesignWidth="1000">
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <!-- Encabezado -->
+            <RowDefinition Height="Auto"/>
+            <!-- Selector de fecha -->
+            <RowDefinition Height="Auto"/>
+            <!-- Tarjetas -->
+            <RowDefinition Height="*"/>
+            <!-- DataGrid -->
+        </Grid.RowDefinitions>
+
+        <!-- Encabezado con título y botones -->
+        <Grid Grid.Row="0" Margin="0 0 0 20">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Título -->
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Grid.Column="0">
+                <fa:ImageAwesome Icon="Dropbox" Width="28" Height="28" Foreground="Black" Margin="0,0,10,0"/>
+                <TextBlock Text="GESTIÓN DE STOCK" FontSize="28" FontWeight="Bold" VerticalAlignment="Center" FontFamily="Poppins"/>
+            </StackPanel>
+
+            <!-- Botones -->
+            <StackPanel Orientation="Horizontal" Grid.Column="1" HorizontalAlignment="Right">
+                <Button Height="40" Background="#007bff" Foreground="White" FontWeight="Bold"
+                        BorderBrush="Transparent" Margin="0 0 10 0" Padding="10 5" >
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <fa:ImageAwesome Icon="Plus" Width="16" Height="16" Margin="0,0,5,0" Foreground="White"/>
+                        <TextBlock Text="INGRESO" FontSize="14"/>
+                    </StackPanel>
+                    <Button.Effect>
+                        <DropShadowEffect Color="#888" ShadowDepth="2" BlurRadius="4"/>
+                    </Button.Effect>
+                </Button>
+
+                <Button Height="40" Background="#5dade2" Foreground="White" FontWeight="Bold"
+                        BorderBrush="Transparent" Padding="10 5" >
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <fa:ImageAwesome Icon="Minus" Width="16" Height="16" Margin="0,0,5,0" Foreground="White"/>
+                        <TextBlock Text="EGRESO" FontSize="14"/>
+                    </StackPanel>
+                    <Button.Effect>
+                        <DropShadowEffect Color="#888" ShadowDepth="2" BlurRadius="4"/>
+                    </Button.Effect>
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <!-- Selector de Fecha -->
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Left" Margin="0 0 0 15">
+            <fa:ImageAwesome Icon="Calendar" Width="20" Height="20" Foreground="#333" Margin="0,0,8,0"/>
+            <TextBlock Text="Seleccione la fecha:" VerticalAlignment="Center" FontSize="16" Margin="0,0,10,0"/>
+            <DatePicker x:Name="dpFechaStock"
+            Width="221"
+            FontSize="15"
+            >
+                <DatePicker.Resources>
+                    <Style TargetType="DatePickerTextBox">
+                        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                        <Setter Property="FontSize" Value="15"/>
+                    </Style>
+                </DatePicker.Resources>
+            </DatePicker>
+        </StackPanel>
+
+        <!-- TARJETAS DE INFORMACIÓN -->
+        <Grid Grid.Row="2" Margin="0 0 0 20">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Tarjeta 1: Fecha del día -->
+            <Border Grid.Column="0" Background="#E3F2FD" CornerRadius="12" Margin="5" Padding="15">
+                <StackPanel HorizontalAlignment="Center">
+                    <TextBlock Text="📅 FECHA DEL DÍA" FontWeight="Bold" FontSize="18" Foreground="#1565C0" TextAlignment="Center"/>
+                    <TextBlock x:Name="txtFecha" FontSize="18" FontWeight="SemiBold"
+                               Margin="0,5,0,0" Foreground="Black" TextAlignment="Center"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Tarjeta 2: Stock inicial -->
+            <Border Grid.Column="1" Background="#E8F5E9" CornerRadius="12" Margin="5" Padding="15">
+                <StackPanel HorizontalAlignment="Center">
+                    <TextBlock Text="📦 STOCK BOLSAS INICIAL" FontWeight="Bold" FontSize="18" Foreground="#2E7D32" TextAlignment="Center"/>
+                    <TextBlock x:Name="txtStockInicial" FontSize="22" FontWeight="SemiBold"
+                               Margin="0,5,0,0" Foreground="Black" TextAlignment="Center"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Tarjeta 3: Stock actual -->
+            <Border Grid.Column="2" Background="#FFF8E1" CornerRadius="12" Margin="5" Padding="15">
+                <StackPanel HorizontalAlignment="Center">
+                    <TextBlock Text="📊 STOCK BOLSAS ACTUAL" FontWeight="Bold" FontSize="18" Foreground="#F57C00" TextAlignment="Center"/>
+                    <TextBlock x:Name="txtStockActual" FontSize="22" FontWeight="SemiBold"
+                               Margin="0,5,0,0" Foreground="Black" TextAlignment="Center"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <DataGrid x:Name="dgStock"
+          Grid.Row="3"
+          AutoGenerateColumns="False"
+          IsReadOnly="True"
+          SelectionMode="Single"
+          HeadersVisibility="Column"
+          CanUserAddRows="False"
+          CanUserResizeColumns="False"
+          GridLinesVisibility="None"
+          RowHeight="40"
+          FontSize="14"
+          BorderThickness="0"
+          Background="White"
+          RowBackground="White"
+          AlternatingRowBackground="#F0F4F8"
+          ColumnHeaderHeight="35"
+          HorizontalGridLinesBrush="#E0E0E0"
+          VerticalGridLinesBrush="#E0E0E0"
+          Margin="0">
+
+            <DataGrid.Resources>
+                <!-- Estilo de encabezados -->
+                <Style TargetType="DataGridColumnHeader">
+                    <Setter Property="FontWeight" Value="Bold"/>
+                    <Setter Property="FontSize" Value="14"/>
+                    <Setter Property="Padding" Value="5"/>
+                </Style>
+
+                <!-- Estilo de filas -->
+                <Style TargetType="DataGridRow">
+                    <Setter Property="Margin" Value="0,0,0,2"/>
+                    <Setter Property="Padding" Value="2"/>
+                    <Setter Property="Background" Value="Transparent"/>
+                    <Setter Property="HorizontalAlignment" Value="Stretch"/>
+                    <Setter Property="FontSize" Value="16"/>
+                    <Style.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Background" Value="#BBDEFB"/>
+                        </Trigger>
+                        <!-- Colorear fila según tipo -->
+                        <DataTrigger Binding="{Binding Tipo}" Value="Ingreso">
+                            <Setter Property="Background" Value="#C8E6C9"/>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding Tipo}" Value="Egreso">
+                            <Setter Property="Background" Value="#FFCDD2"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </DataGrid.Resources>
+
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="ID Producto" Binding="{Binding IdProducto}" Width="110"/>
+                <DataGridTextColumn Header="Producto" Binding="{Binding Producto}" Width="200"/>
+                <DataGridTextColumn Header="Cantidad" Binding="{Binding Cantidad}" Width="150" />
+
+                <!-- Columna Egreso/Ingreso con flechas y color -->
+                <DataGridTemplateColumn Header="Egreso/Ingreso" Width="250">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock HorizontalAlignment="Center" FontWeight="Bold">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Tipo}" Value="Ingreso">
+                                                <Setter Property="Foreground" Value="Green"/>
+                                                <Setter Property="Text" Value="↑ Ingreso"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Tipo}" Value="Egreso">
+                                                <Setter Property="Foreground" Value="Red"/>
+                                                <Setter Property="Text" Value="↓ Egreso"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <DataGridTextColumn Header="Origen" Binding="{Binding Origen}" Width="250" />
+            </DataGrid.Columns>
+        </DataGrid>
+
+
+    </Grid>
+</UserControl>
+

@@ -81,7 +81,9 @@
                          Height="28" 
                          FontSize="14" 
                          Grid.Column="1" 
-                         HorizontalAlignment="Stretch"/>
+                         HorizontalAlignment="Stretch"
+                         PreviewTextInput="txtMonto_PreviewTextInput"
+                         DataObject.Pasting="txtMonto_Pasting"/>
             </Grid>
 
             <!-- Botón Agregar -->

@@ -45,7 +45,7 @@
         <!-- Menú lateral -->
         <StackPanel Background="#1F2A40" Grid.Column="0" Margin="0">
             <!-- Logo IntegraSoft -->
-            <Button Style="{StaticResource MenuButton}" Click="BtnControlGeneral_Click" FontSize="22">
+            <Button Style="{StaticResource MenuButton}" Click="BtnDashboard_Click" FontSize="22">
                 <StackPanel Orientation="Horizontal" Margin="10" VerticalAlignment="Center">
                     <fa:ImageAwesome Icon="Cogs" Width="24" Height="24" Foreground="White" Margin="0,0,10,0"/>
                     <TextBlock Text="IntegraSoft" FontSize="24" FontWeight="Bold" Foreground="White" VerticalAlignment="Center"/>
@@ -90,10 +90,19 @@
                 </StackPanel>
             </Button>
 
-            <Button Style="{StaticResource MenuButton}" Click="BtnPrecios_Click" FontSize="18">
+            <Button Style="{StaticResource MenuButton}" Click="BtnStock_Click" FontSize="18">
                 <StackPanel Orientation="Horizontal">
-                    <fa:ImageAwesome Icon="Tags" Width="22" Height="22" Foreground="White" Margin="0,0,10,40"/>
-                    <TextBlock Text="Precios"/>
+                    <fa:ImageAwesome Icon="Dropbox"  Width="22" Height="22" Foreground="White" Margin="0,0,10,40" RenderTransformOrigin="0.5,0.5">
+                        <fa:ImageAwesome.RenderTransform>
+                            <TransformGroup>
+                                <ScaleTransform/>
+                                <SkewTransform/>
+                                <RotateTransform Angle="360.493"/>
+                                <TranslateTransform/>
+                            </TransformGroup>
+                        </fa:ImageAwesome.RenderTransform>
+                    </fa:ImageAwesome>
+                    <TextBlock Text="Stock"/>
                 </StackPanel>
             </Button>
 

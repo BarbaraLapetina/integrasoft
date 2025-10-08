@@ -25,9 +25,18 @@ namespace WpfApp1
             string telefono = txtTelefono.Text;
             string email = txtEmail.Text;
             string estado = (cmbEstado.SelectedItem as ComboBoxItem)?.Content.ToString() ?? "Activo";
+            string Observaciones = txtObservaciones.Text;
             DateTime fechaAlta = DateTime.Now;
 
-            string connectionString = "Server=localhost;Database=Cristo;Trusted_Connection=True;";
+            // ✅ Validar campos obligatorios
+            if (string.IsNullOrWhiteSpace(apellido) || string.IsNullOrWhiteSpace(nombre))
+            {
+                MessageBox.Show("Debe completar los campos 'Apellido' y 'Nombre' antes de continuar.",
+                                "Campos incompletos",
+                                MessageBoxButton.OK,
+                                MessageBoxImage.Warning);
+                return; // Detiene la ejecución si faltan datos
+            }
 
             using (SqlConnection conn = new SqlConnection(connectionString))
             {
@@ -36,10 +45,23 @@ namespace WpfApp1
 
                 try
                 {
-                    // Insertar cliente sin especificar el clienteID
+                    // 🔎 Verificar si el DNI ya existe
+                    string checkDNI = "SELECT COUNT(*) FROM Cliente WHERE DNI = @DNI";
+                    SqlCommand cmdCheck = new SqlCommand(checkDNI, conn, transaction);
+                    cmdCheck.Parameters.AddWithValue("@DNI", dni);
+
+                    int existe = (int)cmdCheck.ExecuteScalar();
+                    if (existe > 0)
+                    {
+                        MessageBox.Show("Ya existe un cliente registrado con ese DNI.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        transaction.Rollback();
+                        return;
+                    }
+
+                    // Insertar cliente
                     string insertCliente = @"
-                INSERT INTO Cliente (Apellido, Nombre, DNI, Direccion, Telefo, Email, Estado, FechaAlta)
-                VALUES (@Apellido, @Nombre, @DNI, @Direccion, @Telefo, @Email, @Estado, @FechaAlta);
+                INSERT INTO Cliente (Apellido, Nombre, DNI, Direccion, Telefo, Email, Estado, FechaAlta, Observaciones)
+                VALUES (@Apellido, @Nombre, @DNI, @Direccion, @Telefo, @Email, @Estado, @FechaAlta, @Observaciones);
                 SELECT SCOPE_IDENTITY();";
 
                     SqlCommand cmdCliente = new SqlCommand(insertCliente, conn, transaction);
@@ -51,14 +73,14 @@ namespace WpfApp1
                     cmdCliente.Parameters.AddWithValue("@Email", email);
                     cmdCliente.Parameters.AddWithValue("@Estado", estado);
                     cmdCliente.Parameters.AddWithValue("@FechaAlta", fechaAlta);
+                    cmdCliente.Parameters.AddWithValue("@Observaciones", Observaciones);
 
-                    // Obtener ID recién generado
                     int nuevoClienteID = Convert.ToInt32(cmdCliente.ExecuteScalar());
 
                     // Insertar cuenta corriente asociada
                     string insertCuenta = @"
-                INSERT INTO CuentaCorrienteCliente (clienteID, SaldoPesos, SaldoBolsas)
-                VALUES (@clienteID, 0, 0)";
+                INSERT INTO CuentaCorrienteCliente (clienteID, SaldoPesos)
+                VALUES (@clienteID, 0)";
 
                     SqlCommand cmdCuenta = new SqlCommand(insertCuenta, conn, transaction);
                     cmdCuenta.Parameters.AddWithValue("@clienteID", nuevoClienteID);
@@ -69,7 +91,7 @@ namespace WpfApp1
 
                     MessageBox.Show("Cliente y cuenta corriente creados correctamente.", "Éxito", MessageBoxButton.OK, MessageBoxImage.Information);
                     parentControl.RecargarClientes();
-                    this.Close(); // Cierra la ventana del formulario
+                    this.Close();
                 }
                 catch (Exception ex)
                 {
@@ -78,6 +100,7 @@ namespace WpfApp1
                 }
             }
         }
+
 
         private void SoloLetras_PreviewTextInput(object sender, System.Windows.Input.TextCompositionEventArgs e)
         {
@@ -103,12 +126,19 @@ namespace WpfApp1
         {
             if (!EsSoloNumeros(e.Text))
             {
-                lblErrorDNI.Visibility = Visibility.Visible;
+                if (sender == txtDNI)
+                    lblErrorDNI.Visibility = Visibility.Visible;
+                else if (sender == txtTelefono)
+                    lblErrorTelefono.Visibility = Visibility.Visible;
+
                 e.Handled = true;
             }
             else
             {
-                lblErrorDNI.Visibility = Visibility.Collapsed;
+                if (sender == txtDNI)
+                    lblErrorDNI.Visibility = Visibility.Collapsed;
+                else if (sender == txtTelefono)
+                    lblErrorTelefono.Visibility = Visibility.Collapsed;
             }
         }
 
@@ -147,6 +177,12 @@ namespace WpfApp1
         {
             lblErrorDNI.Visibility = Visibility.Collapsed;
         }
+
+        private void txtTelefono_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            lblErrorTelefono.Visibility = Visibility.Collapsed;
+        }
+
 
 
     }

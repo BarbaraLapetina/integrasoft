@@ -1,7 +1,9 @@
 ﻿using System;
-using System.Data;
 using System.Data.SqlClient;
+using System.Linq;
 using System.Windows;
+using System.Windows.Controls;
+using System.Collections.Generic;
 
 namespace WpfApp1
 {
@@ -9,6 +11,7 @@ namespace WpfApp1
     {
         private string connectionString = "Data Source=localhost;Initial Catalog=Cristo;Integrated Security=True";
         private decimal precioActualBolsa = 0m;
+
         public class DetalleVentaItem
         {
             public int productoID { get; set; }
@@ -22,26 +25,25 @@ namespace WpfApp1
         {
             public int clienteID { get; set; }
             public string NombreCompleto { get; set; }
-
-            public override string ToString()
-            {
-                return NombreCompleto;
-            }
+            public override string ToString() => NombreCompleto;
         }
 
         private List<DetalleVentaItem> detalleVenta = new List<DetalleVentaItem>();
+        private List<ComboBoxItemCliente> todosClientes; // lista completa para filtrar
 
         public VentaClienteForm()
         {
             InitializeComponent();
             CargarClientes();
+            InicializarComboClientes();
             CargarProductos();
-            CargarPrecioActual();
             txtFecha.Text = DateTime.Now.ToString("yyyy-MM-dd");
         }
 
         private void CargarClientes()
         {
+            todosClientes = new List<ComboBoxItemCliente>();
+
             using (SqlConnection conn = new SqlConnection(connectionString))
             {
                 conn.Open();
@@ -50,13 +52,40 @@ namespace WpfApp1
 
                 while (reader.Read())
                 {
-                    cbClientes.Items.Add(new ComboBoxItemCliente
+                    todosClientes.Add(new ComboBoxItemCliente
                     {
                         clienteID = Convert.ToInt32(reader["clienteID"]),
                         NombreCompleto = $"{reader["Apellido"]} {reader["Nombre"]}"
                     });
                 }
             }
+
+            cbClientes.ItemsSource = todosClientes;
+            cbClientes.DisplayMemberPath = "NombreCompleto";
+        }
+
+        // Suscribir el TextChanged del TextBox interno del ComboBox
+        private void InicializarComboClientes()
+        {
+            cbClientes.Loaded += (s, e) =>
+            {
+                if (cbClientes.Template.FindName("PART_EditableTextBox", cbClientes) is TextBox textBox)
+                {
+                    textBox.TextChanged += CbClientes_TextChanged;
+                }
+            };
+        }
+
+        private void CbClientes_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            string texto = cbClientes.Text.ToLower();
+            var filtrados = todosClientes
+                .Where(c => c.NombreCompleto.ToLower().Contains(texto))
+                .ToList();
+
+            cbClientes.ItemsSource = filtrados;
+            cbClientes.DisplayMemberPath = "NombreCompleto";
+            cbClientes.IsDropDownOpen = true; // abrir lista automáticamente
         }
 
         private void CargarProductos()
@@ -80,30 +109,29 @@ namespace WpfApp1
             }
         }
 
-        private void CargarPrecioActual()
-        {
-            using (SqlConnection conn = new SqlConnection(connectionString))
-            {
-                conn.Open();
-                SqlCommand cmd = new SqlCommand("SELECT TOP 1 Precio FROM ParametroPrecio ORDER BY Fecha DESC", conn);
-                precioActualBolsa = Convert.ToDecimal(cmd.ExecuteScalar());
-            }
-        }
-
         private void btnAgregar_Click(object sender, RoutedEventArgs e)
         {
-            if (cbProductos.SelectedItem == null || string.IsNullOrWhiteSpace(txtCantidad.Text))
+            if (cbProductos.SelectedItem == null)
             {
-                MessageBox.Show("Selecciona un producto y cantidad válida.");
+                MessageBox.Show("Por favor, seleccione un producto.", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(txtCantidad.Text) || !int.TryParse(txtCantidad.Text, out int cantidad) || cantidad <= 0)
+            {
+                MessageBox.Show("Ingrese una cantidad válida (mayor a 0).", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(txtPrecio.Text) || !decimal.TryParse(txtPrecio.Text, out decimal precioUnitario) || precioUnitario <= 0)
+            {
+                MessageBox.Show("Ingrese un precio válido (mayor a 0).", "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
             int productoID = (int)((dynamic)cbProductos.SelectedItem).productoID;
             string nombreProducto = ((dynamic)cbProductos.SelectedItem).Nombre;
-            int cantidad = int.Parse(txtCantidad.Text);
 
-            int cantidadBolsas = ObtenerCantidadBolsas(productoID);
-            decimal precioUnitario = cantidadBolsas * precioActualBolsa;
             decimal subtotal = cantidad * precioUnitario;
 
             detalleVenta.Add(new DetalleVentaItem
@@ -115,11 +143,12 @@ namespace WpfApp1
                 Subtotal = subtotal
             });
 
-
             dgDetalles.ItemsSource = null;
             dgDetalles.ItemsSource = detalleVenta;
-
             txtTotal.Text = detalleVenta.Sum(i => i.Subtotal).ToString("C");
+
+            txtCantidad.Text = string.Empty;
+            txtPrecio.Text = string.Empty;
         }
 
         private void btnEliminar_Click(object sender, RoutedEventArgs e)
@@ -138,17 +167,6 @@ namespace WpfApp1
             }
         }
 
-        private int ObtenerCantidadBolsas(int productoID)
-        {
-            using (SqlConnection conn = new SqlConnection(connectionString))
-            {
-                conn.Open();
-                SqlCommand cmd = new SqlCommand("SELECT CantidadBolsas FROM Producto WHERE ProductoID = @id", conn);
-                cmd.Parameters.AddWithValue("@id", productoID);
-                return Convert.ToInt32(cmd.ExecuteScalar());
-            }
-        }
-
         private void BtnRegistrarVenta_Click(object sender, RoutedEventArgs e)
         {
             if (cbClientes.SelectedItem == null || detalleVenta.Count == 0)
@@ -159,7 +177,6 @@ namespace WpfApp1
 
             int clienteID = ((ComboBoxItemCliente)cbClientes.SelectedItem).clienteID;
             DateTime fecha = DateTime.Now;
-            bool pagada = estaPagado.IsChecked == true;
             decimal totalVenta = detalleVenta.Sum(d => d.Subtotal);
 
             using (SqlConnection conn = new SqlConnection(connectionString))
@@ -171,13 +188,12 @@ namespace WpfApp1
                 {
                     // Insertar en tabla Venta
                     string insertVenta = @"
-                INSERT INTO Venta (clienteID, Fecha, estaPagado, TotalVenta)
-                OUTPUT INSERTED.ventaID 
-                VALUES (@clienteID, @Fecha, @estaPagado, @TotalVenta)";
+                        INSERT INTO Venta (clienteID, Fecha, TotalVenta)
+                        OUTPUT INSERTED.ventaID 
+                        VALUES (@clienteID, @Fecha, @TotalVenta)";
                     SqlCommand cmdVenta = new SqlCommand(insertVenta, conn, transaction);
                     cmdVenta.Parameters.AddWithValue("@clienteID", clienteID);
                     cmdVenta.Parameters.AddWithValue("@Fecha", fecha);
-                    cmdVenta.Parameters.AddWithValue("@estaPagado", pagada);
                     cmdVenta.Parameters.AddWithValue("@TotalVenta", totalVenta);
 
                     int ventaID = (int)cmdVenta.ExecuteScalar();
@@ -186,9 +202,9 @@ namespace WpfApp1
                     foreach (var detalle in detalleVenta)
                     {
                         string insertDetalle = @"
-                    INSERT INTO DetalleVenta 
-                    (ventaID, productoID, Cantidad, PrecioUnitario, Subtotal)
-                    VALUES (@ventaID, @productoID, @Cantidad, @PrecioUnitario, @Subtotal)";
+                            INSERT INTO DetalleVenta 
+                            (ventaID, productoID, Cantidad, PrecioUnitario, Subtotal)
+                            VALUES (@ventaID, @productoID, @Cantidad, @PrecioUnitario, @Subtotal)";
                         SqlCommand cmdDetalle = new SqlCommand(insertDetalle, conn, transaction);
                         cmdDetalle.Parameters.AddWithValue("@ventaID", ventaID);
                         cmdDetalle.Parameters.AddWithValue("@productoID", detalle.productoID);
@@ -198,73 +214,55 @@ namespace WpfApp1
                         cmdDetalle.ExecuteNonQuery();
                     }
 
-                    // Solo registrar movimiento en cuenta corriente si NO está pagada
-                    if (!pagada)
+                    // Obtener último saldo
+                    decimal saldoAnterior = 0;
+                    string queryUltimoSaldo = @"
+                        SELECT TOP 1 Saldo
+                        FROM MovimientoCuentaCliente 
+                        WHERE clienteID = @clienteID 
+                        ORDER BY Fecha DESC";
+                    SqlCommand cmdSaldo = new SqlCommand(queryUltimoSaldo, conn, transaction);
+                    cmdSaldo.Parameters.AddWithValue("@clienteID", clienteID);
+                    SqlDataReader reader = cmdSaldo.ExecuteReader();
+                    if (reader.Read())
                     {
-                        // Obtener último saldo
-                        decimal saldoAnterior = 0;
-                        decimal saldoBolsasAnterior = 0;
-
-                        string queryUltimoSaldo = @"
-                    SELECT TOP 1 Saldo, SaldoBls 
-                    FROM MovimientoCuentaCliente 
-                    WHERE clienteID = @clienteID 
-                    ORDER BY Fecha DESC";
-                        SqlCommand cmdSaldo = new SqlCommand(queryUltimoSaldo, conn, transaction);
-                        cmdSaldo.Parameters.AddWithValue("@clienteID", clienteID);
-                        SqlDataReader reader = cmdSaldo.ExecuteReader();
-                        if (reader.Read())
-                        {
-                            saldoAnterior = reader["Saldo"] != DBNull.Value ? Convert.ToDecimal(reader["Saldo"]) : 0;
-                            saldoBolsasAnterior = reader["SaldoBls"] != DBNull.Value ? Convert.ToDecimal(reader["SaldoBls"]) : 0;
-                        }
-                        reader.Close();
-
-                        // Precio actual de bolsa
-                        string queryPrecio = "SELECT TOP 1 Precio FROM ParametroPrecio ORDER BY Fecha DESC";
-                        SqlCommand cmdPrecio = new SqlCommand(queryPrecio, conn, transaction);
-                        object precioObj = cmdPrecio.ExecuteScalar();
-                        decimal precioBolsa = precioObj != null ? Convert.ToDecimal(precioObj) : 1;
-
-                        // Insertar movimiento en MovimientoCuentaCliente
-                        string insertMov = @"
-                    INSERT INTO MovimientoCuentaCliente
-                    (clienteID, Fecha, Detalle, Debe, Haber, Saldo, DebeBls, HaberBls, SaldoBls)
-                    VALUES (@clienteID, @Fecha, @Detalle, @Debe, @Haber, @Saldo, @DebeBls, @HaberBls, @SaldoBls)";
-                        SqlCommand cmdMov = new SqlCommand(insertMov, conn, transaction);
-                        cmdMov.Parameters.AddWithValue("@clienteID", clienteID);
-                        cmdMov.Parameters.AddWithValue("@Fecha", fecha);
-                        cmdMov.Parameters.AddWithValue("@Detalle", "Venta a cuenta");
-
-                        decimal debe = totalVenta;
-                        decimal haber = 0;
-                        decimal debeBls = (precioBolsa != 0 ? totalVenta / precioBolsa : 0);
-                        decimal haberBls = 0;
-                        decimal saldoNuevo = ((-saldoAnterior) + debe - haber) * (-1);
-                        decimal saldoBlsNuevo = saldoBolsasAnterior + debeBls - haberBls;
-
-                        cmdMov.Parameters.AddWithValue("@Debe", debe);
-                        cmdMov.Parameters.AddWithValue("@Haber", haber);
-                        cmdMov.Parameters.AddWithValue("@Saldo", saldoNuevo);
-                        cmdMov.Parameters.AddWithValue("@DebeBls", debeBls);
-                        cmdMov.Parameters.AddWithValue("@HaberBls", haberBls);
-                        cmdMov.Parameters.AddWithValue("@SaldoBls", saldoBlsNuevo);
-                        cmdMov.ExecuteNonQuery();
-
-                        // Actualizar saldo en CuentaCorrienteCliente
-                        string updateSaldo = @"
-                    UPDATE CuentaCorrienteCliente 
-                    SET SaldoPesos = @Saldo, SaldoBolsas = @SaldoBls 
-                    WHERE clienteID = @clienteID";
-                        SqlCommand cmdUpdate = new SqlCommand(updateSaldo, conn, transaction);
-                        cmdUpdate.Parameters.AddWithValue("@Saldo", saldoNuevo);
-                        cmdUpdate.Parameters.AddWithValue("@SaldoBls", saldoBlsNuevo);
-                        cmdUpdate.Parameters.AddWithValue("@clienteID", clienteID);
-                        cmdUpdate.ExecuteNonQuery();
+                        saldoAnterior = reader["Saldo"] != DBNull.Value ? Convert.ToDecimal(reader["Saldo"]) : 0;
                     }
+                    reader.Close();
+
+                    // Detalle texto
+                    string detalleTexto = string.Join(", ", detalleVenta.Select(d => $"{d.Cantidad} {d.Nombre} {d.PrecioUnitario}"));
+
+                    // Insertar movimiento en MovimientoCuentaCliente
+                    string insertMov = @"
+                        INSERT INTO MovimientoCuentaCliente
+                        (clienteID, Fecha, Detalle, Debe, Haber, Saldo)
+                        VALUES (@clienteID, @Fecha, @Detalle, @Debe, @Haber, @Saldo)";
+                    SqlCommand cmdMov = new SqlCommand(insertMov, conn, transaction);
+                    cmdMov.Parameters.AddWithValue("@clienteID", clienteID);
+                    cmdMov.Parameters.AddWithValue("@Fecha", fecha);
+                    cmdMov.Parameters.AddWithValue("@Detalle", detalleTexto);
+
+                    decimal debe = totalVenta;
+                    decimal haber = 0;
+                    decimal saldoNuevo = ((-saldoAnterior) + debe - haber) * (-1);
+
+                    cmdMov.Parameters.AddWithValue("@Debe", debe);
+                    cmdMov.Parameters.AddWithValue("@Haber", haber);
+                    cmdMov.Parameters.AddWithValue("@Saldo", saldoNuevo);
+                    cmdMov.ExecuteNonQuery();
+
+                    // Actualizar saldo en CuentaCorrienteCliente
+                    string updateSaldo = @"
+                        UPDATE CuentaCorrienteCliente 
+                        SET SaldoPesos = @Saldo
+                        WHERE clienteID = @clienteID";
+                    SqlCommand cmdUpdate = new SqlCommand(updateSaldo, conn, transaction);
+                    cmdUpdate.Parameters.AddWithValue("@Saldo", saldoNuevo);
+                    cmdUpdate.Parameters.AddWithValue("@clienteID", clienteID);
+                    cmdUpdate.ExecuteNonQuery();
 
                     transaction.Commit();
-
                     MessageBox.Show("Venta registrada correctamente.", "Éxito", MessageBoxButton.OK, MessageBoxImage.Information);
                     LimpiarFormulario();
                 }
@@ -276,7 +274,6 @@ namespace WpfApp1
             }
         }
 
-
         private void LimpiarFormulario()
         {
             cbProductos.SelectedIndex = -1;
@@ -285,9 +282,6 @@ namespace WpfApp1
             dgDetalles.ItemsSource = null;
             dgDetalles.ItemsSource = detalleVenta;
             txtTotal.Text = "0";
-            estaPagado.IsChecked = false;
         }
-
     }
-
 }

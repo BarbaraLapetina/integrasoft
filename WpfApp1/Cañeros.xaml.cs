@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows;
 using System.Linq;
 using System.Collections.ObjectModel;
+using System.Net;
 
 namespace WpfApp1
 {
@@ -27,7 +28,7 @@ namespace WpfApp1
 
             using (SqlConnection conn = new SqlConnection(connectionString))
             {
-                string query = "SELECT proveedorID, Apellido, Nombre, DNI, Direccion, Email, Telefono, FechaAlta FROM Proveedor";
+                string query = "SELECT proveedorID, Apellido, Nombre, DNI, Direccion, Email, Telefono, TelefonoContador FROM Proveedor";
                 SqlCommand cmd = new SqlCommand(query, conn);
                 conn.Open();
                 SqlDataReader reader = cmd.ExecuteReader();
@@ -43,7 +44,7 @@ namespace WpfApp1
                         Direccion = reader["Direccion"].ToString(),
                         Email = reader["Email"].ToString(),
                         Telefono = reader["Telefono"].ToString(),
-                        FechaAlta = Convert.ToDateTime(reader["FechaAlta"])
+                        TelefonoContador = reader["TelefonoContador"].ToString()
                     });
                 }
             }
@@ -63,29 +64,21 @@ namespace WpfApp1
                 txtDireccion.Text = proveedorSeleccionado.Direccion;
                 txtTelefono.Text = proveedorSeleccionado.Telefono;
                 txtEmail.Text = proveedorSeleccionado.Email;
-                
+                txtTelefonoContador.Text = proveedorSeleccionado.TelefonoContador;
+
                 // Obtener saldo y precio
                 using (SqlConnection conn = new SqlConnection(connectionString))
                 {
                     conn.Open();
 
                     // Obtener saldo en pesos del cliente
-                    string querySaldo = "SELECT SaldoPesos FROM CuentaCorrienteProveedor WHERE proveedorID = @proveedorID";
+                    string querySaldo = "SELECT SaldoBolsas FROM CuentaCorrienteProveedor WHERE proveedorID = @proveedorID";
                     SqlCommand cmdSaldo = new SqlCommand(querySaldo, conn);
                     cmdSaldo.Parameters.AddWithValue("@proveedorID", proveedorSeleccionado.proveedorID);
                     object saldoObj = cmdSaldo.ExecuteScalar();
-                    decimal saldoPesos = saldoObj != null ? Convert.ToDecimal(saldoObj) : 0;
-                    txtSaldo.Text = $"$ {saldoPesos:N2}";
+                    decimal saldoBolsas = saldoObj != null ? Convert.ToDecimal(saldoObj) : 0;
+                    txtSaldoBolsas.Text = saldoBolsas.ToString();
 
-                    // Obtener el último precio de bolsa desde ParametroPrecio
-                    string queryPrecio = "SELECT TOP 1 Precio FROM ParametroPrecio ORDER BY Fecha DESC";
-                    SqlCommand cmdPrecio = new SqlCommand(queryPrecio, conn);
-                    object precioObj = cmdPrecio.ExecuteScalar();
-                    decimal precioBolsa = precioObj != null ? Convert.ToDecimal(precioObj) : 1;
-
-                    // Calcular saldo en bolsas
-                    decimal saldoBolsas = (precioBolsa != 0 ? Math.Abs(saldoPesos) / precioBolsa : 0);
-                    txtSaldoBolsas.Text = $"{saldoBolsas:N2}";
                 }
             }
         }
@@ -117,13 +110,66 @@ namespace WpfApp1
         {
             if (dgProveedores.SelectedItem is Proveedor proveedor)
             {
-                proveedor.Nombre = txtNombre.Text;
-                proveedor.Apellido = txtApellido.Text;
-                proveedor.DNI = txtDNI.Text;
-                proveedor.Direccion = txtDireccion.Text;
-                proveedor.Telefono = txtTelefono.Text;
-                proveedor.Email = txtEmail.Text;
-               
+                // Tomar los valores del formulario
+                string nombre = txtNombre.Text.Trim();
+                string apellido = txtApellido.Text.Trim();
+                string dni = txtDNI.Text.Trim();
+                string direccion = txtDireccion.Text.Trim();
+                string telefono = txtTelefono.Text.Trim();
+                string email = txtEmail.Text.Trim();
+                string telefonoContador = txtTelefonoContador.Text.Trim();
+
+                // VALIDACIONES
+                if (string.IsNullOrWhiteSpace(nombre) || !EsSoloLetras(nombre))
+                {
+                    MessageBox.Show("El campo Nombre es obligatorio y solo puede contener letras.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+
+                if (string.IsNullOrWhiteSpace(apellido) || !EsSoloLetras(apellido))
+                {
+                    MessageBox.Show("El campo Apellido es obligatorio y solo puede contener letras.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+
+                if (string.IsNullOrWhiteSpace(dni) || !EsSoloNumeros(dni))
+                {
+                    MessageBox.Show("El campo DNI es obligatorio y solo puede contener números.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+
+                if (string.IsNullOrWhiteSpace(telefono) || !EsSoloNumeros(telefono))
+                {
+                    MessageBox.Show("El campo Teléfono es obligatorio y solo puede contener números.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+
+                // VALIDAR QUE EL DNI NO EXISTA EN OTRO PROVEEDOR
+                using (SqlConnection conn = new SqlConnection(connectionString))
+                {
+                    conn.Open();
+                    string queryDni = "SELECT COUNT(*) FROM Proveedor WHERE DNI = @DNI AND proveedorID <> @proveedorID";
+                    SqlCommand cmdDni = new SqlCommand(queryDni, conn);
+                    cmdDni.Parameters.AddWithValue("@DNI", dni);
+                    cmdDni.Parameters.AddWithValue("@proveedorID", proveedor.proveedorID);
+                    int count = (int)cmdDni.ExecuteScalar();
+
+                    if (count > 0)
+                    {
+                        MessageBox.Show("Ya existe otro proveedor con ese DNI. No se pueden guardar los cambios.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                        return;
+                    }
+                }
+
+                // Si pasaron todas las validaciones, actualizar el objeto
+               proveedor.Nombre = nombre;
+                proveedor.Apellido = apellido;
+                proveedor.DNI = dni;
+               proveedor.Direccion = direccion;
+              proveedor.Telefono = telefono;
+                proveedor.Email = email;
+                proveedor.TelefonoContador = telefonoContador;
+
                 using (SqlConnection conn = new SqlConnection(connectionString))
                 {
                     string query = @"UPDATE Proveedor
@@ -132,7 +178,8 @@ namespace WpfApp1
                                  DNI = @DNI,
                                  Direccion = @Direccion,
                                  Email = @Email,
-                                 Telefono = @Telefono
+                                 Telefono = @Telefono,
+                                 TelefonoContador = @TelefonoContador
                              WHERE proveedorID = @proveedorID";
 
                     SqlCommand cmd = new SqlCommand(query, conn);
@@ -142,6 +189,7 @@ namespace WpfApp1
                     cmd.Parameters.AddWithValue("@Direccion", proveedor.Direccion);
                     cmd.Parameters.AddWithValue("@Email", proveedor.Email);
                     cmd.Parameters.AddWithValue("@Telefono", proveedor.Telefono);
+                    cmd.Parameters.AddWithValue("@TelefonoContador", proveedor.TelefonoContador);
                     cmd.Parameters.AddWithValue("@proveedorID", proveedor.proveedorID);
 
                     conn.Open();
@@ -181,20 +229,13 @@ namespace WpfApp1
                 {
                     conn.Open();
 
-                    string querySaldo = "SELECT SaldoPesos FROM CuentaCorrienteProveedor WHERE proveedorID = @proveedorID";
+                    string querySaldo = "SELECT SaldoBolsas FROM CuentaCorrienteProveedor WHERE proveedorID = @proveedorID";
                     SqlCommand cmdSaldo = new SqlCommand(querySaldo, conn);
                     cmdSaldo.Parameters.AddWithValue("@proveedorID", proveedorSeleccionado.proveedorID);
                     object saldoObj = cmdSaldo.ExecuteScalar();
-                    decimal saldoPesos = saldoObj != null ? Convert.ToDecimal(saldoObj) : 0;
-                    txtSaldo.Text = $"$ {saldoPesos:N2}";
+                    decimal saldoBolsas = saldoObj != null ? Convert.ToDecimal(saldoObj) : 0;
+                    txtSaldoBolsas.Text = saldoBolsas.ToString();
 
-                    string queryPrecio = "SELECT TOP 1 Precio FROM ParametroPrecio ORDER BY Fecha DESC";
-                    SqlCommand cmdPrecio = new SqlCommand(queryPrecio, conn);
-                    object precioObj = cmdPrecio.ExecuteScalar();
-                    decimal precioBolsa = precioObj != null ? Convert.ToDecimal(precioObj) : 1;
-
-                    decimal saldoBolsas = (precioBolsa != 0 ? Math.Abs(saldoPesos) / precioBolsa : 0);
-                    txtSaldoBolsas.Text = $"{saldoBolsas:N2}";
                 }
             }
         }
@@ -223,12 +264,23 @@ namespace WpfApp1
         {
             if (!EsSoloNumeros(e.Text))
             {
-                lblErrorDNI.Visibility = Visibility.Visible;
+                if (sender == txtDNI)
+                    lblErrorDNI.Visibility = Visibility.Visible;
+                else if (sender == txtTelefono)
+                    lblErrorTelefono.Visibility = Visibility.Visible;
+                else if (sender == txtTelefonoContador)
+                    lblErrorTelefonoContador.Visibility = Visibility.Visible;
+
                 e.Handled = true;
             }
             else
             {
-                lblErrorDNI.Visibility = Visibility.Collapsed;
+                if (sender == txtDNI)
+                    lblErrorDNI.Visibility = Visibility.Collapsed;
+                else if (sender == txtTelefono)
+                    lblErrorTelefono.Visibility = Visibility.Collapsed;
+                else if (sender == txtTelefonoContador)
+                    lblErrorTelefonoContador.Visibility = Visibility.Collapsed;
             }
         }
 
@@ -269,6 +321,16 @@ namespace WpfApp1
         }
 
 
+        private void txtTelefono_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            lblErrorTelefono.Visibility = Visibility.Collapsed;
+        }
+
+        private void txtTelefonoContador_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            lblErrorTelefonoContador.Visibility = Visibility.Collapsed;
+        }
+
 
 
 
@@ -283,6 +345,7 @@ namespace WpfApp1
         public string Direccion { get; set; }
         public string Email { get; set; }
         public string Telefono { get; set; } // nombre exacto de la columna
+        public string TelefonoContador { get; set; }
         public DateTime FechaAlta { get; set; }
     }
 }
